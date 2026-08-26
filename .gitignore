@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+.DS_Store
+coverage/
+*.tsbuildinfo
+next-env.d.ts
