@@ -15,3 +15,9 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Agent-skill artifacts installed by marketplace integrations. Tooling for AI
+# assistants, not part of the product.
+.agents/
+.claude/
+skills-lock.json
