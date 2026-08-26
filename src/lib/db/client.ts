@@ -66,7 +66,23 @@ async function createPostgres(): Promise<Executor> {
     max: Number(process.env.DATABASE_POOL_MAX ?? 1),
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 10_000,
-    ssl: process.env.DATABASE_SSL === "disable" ? undefined : { rejectUnauthorized: false },
+
+    /**
+     * TLS is driven by the connection string (`sslmode=require`) by default, so
+     * the server certificate is actually verified. Managed providers present
+     * valid certificates, and disabling verification here would silently accept
+     * a man-in-the-middle on the link carrying every payment record.
+     *
+     *   DATABASE_SSL=disable    plaintext, for a local Postgres without TLS
+     *   DATABASE_SSL=no-verify  encrypted but unverified; only for a provider
+     *                           using a self-signed certificate
+     */
+    ssl:
+      process.env.DATABASE_SSL === "disable"
+        ? false
+        : process.env.DATABASE_SSL === "no-verify"
+          ? { rejectUnauthorized: false }
+          : undefined,
   });
 
   pool.on("error", (error) => {
