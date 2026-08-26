@@ -26,10 +26,10 @@ export async function GET(request: NextRequest) {
   try {
     const persona = new URL(request.url).searchParams.get("persona") ?? "client";
 
-    if (!isSeeded()) {
+    if (!await isSeeded()) {
       await seedDemoData();
     } else {
-      hydrateSimulatedEscrowFromDb();
+      await hydrateSimulatedEscrowFromDb();
     }
 
     const handle =
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       persona === "operator" ? "vf-operations" :
       "northstarcoffee";
 
-    const user = usersRepo.byHandle(handle);
+    const user = await usersRepo.byHandle(handle);
     if (!user) {
       return NextResponse.json(
         { error: { code: "INTERNAL", message: "Demo data could not be prepared." } },
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       handle === "vf-operations" ? DEMO_ADDRESSES.operator :
       DEMO_ADDRESSES.northstar;
 
-    const session = sessionsRepo.create(user.id, address, getChainConfig().chainId);
+    const session = await sessionsRepo.create(user.id, address, getChainConfig().chainId);
     const store = await cookies();
     store.set(SESSION_COOKIE, session.id, {
       httpOnly: true,
@@ -62,10 +62,10 @@ export async function GET(request: NextRequest) {
     // Marks the session as demo so the app shell can show the persona switcher.
     store.set("vf_demo", persona, { sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 });
 
-    track({ name: "demo_mode_started", userId: user.id, properties: { persona } });
+    await track({ name: "demo_mode_started", userId: user.id, properties: { persona } });
 
     // Land each persona where their work actually is.
-    const headline = agreementsRepo.byReference("VF-1042");
+    const headline = await agreementsRepo.byReference("VF-1042");
     const destination =
       persona === "operator" ? "/app/admin" :
       headline ? `/app/agreements/${headline.id}` : "/app";

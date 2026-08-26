@@ -41,24 +41,24 @@ export interface AgreementBundle {
   providerAddress: string | null;
 }
 
-export function loadBundle(agreementId: string): AgreementBundle | null {
-  const agreement = agreementsRepo.byId(agreementId);
+export async function loadBundle(agreementId: string): Promise<AgreementBundle | null> {
+  const agreement = await agreementsRepo.byId(agreementId);
   if (!agreement) return null;
-  return hydrate(agreement);
+  return await hydrate(agreement);
 }
 
-export function hydrate(agreement: Agreement): AgreementBundle {
-  const milestones = milestonesRepo.forAgreement(agreement.id);
-  const client = usersRepo.byId(agreement.clientId);
-  const provider = agreement.providerId ? usersRepo.byId(agreement.providerId) : null;
+export async function hydrate(agreement: Agreement): Promise<AgreementBundle> {
+  const milestones = await milestonesRepo.forAgreement(agreement.id);
+  const client = await usersRepo.byId(agreement.clientId);
+  const provider = agreement.providerId ? await usersRepo.byId(agreement.providerId) : null;
   return {
     agreement,
     milestones,
     client,
     provider,
-    clientAddress: client ? walletsRepo.primaryAddress(client.id) : null,
+    clientAddress: client ? await walletsRepo.primaryAddress(client.id) : null,
     providerAddress: provider
-      ? walletsRepo.primaryAddress(provider.id)
+      ? await walletsRepo.primaryAddress(provider.id)
       : agreement.providerInviteAddress,
   };
 }
@@ -67,12 +67,12 @@ export function hydrate(agreement: Agreement): AgreementBundle {
 // Create
 // ---------------------------------------------------------------------------
 
-export function createAgreement(params: {
+export async function createAgreement(params: {
   input: unknown;
   creator: User;
   creatorRole: PartyRole;
   ip?: string | null;
-}): AgreementBundle {
+}): Promise<AgreementBundle> {
   const parsed = agreementDraftSchema.safeParse(params.input);
   if (!parsed.success) {
     throw new AppError("VALIDATION_FAILED", "The agreement could not be saved.", {
@@ -83,15 +83,15 @@ export function createAgreement(params: {
 
   // Resolve the counterparty. An agreement can be created before the other party
   // has joined -- they are invited by address and linked on their first sign-in.
-  const counterparty = resolveCounterparty(draft, params.creator);
+  const counterparty = await resolveCounterparty(draft, params.creator);
 
   const now = nowIso();
   const chainCfg = getChainConfig();
 
-  return transaction(() => {
+  return await transaction(async () => {
     const agreement: Agreement = {
       id: newId("agr"),
-      reference: newReference(agreementsRepo.nextSequence()),
+      reference: newReference(await agreementsRepo.nextSequence()),
       title: draft.title,
       description: draft.description,
       clientId: params.creatorRole === "client" ? params.creator.id : counterparty.userId ?? params.creator.id,
@@ -129,11 +129,12 @@ export function createAgreement(params: {
       });
     }
 
-    agreementsRepo.insert(agreement);
+    await agreementsRepo.insert(agreement);
 
-    const milestones = draft.milestones.map((m, index) =>
-      milestonesRepo.insert(buildMilestone(m, agreement.id, index, now)),
-    );
+    const milestones: Milestone[] = [];
+    for (const [index, m] of draft.milestones.entries()) {
+      milestones.push(await milestonesRepo.insert(buildMilestone(m, agreement.id, index, now)));
+    }
 
     recordActivity({
       agreementId: agreement.id,
@@ -166,25 +167,25 @@ export function createAgreement(params: {
     });
 
     indexAgreement(agreement, milestones);
-    return hydrate(agreement);
+    return await hydrate(agreement);
   });
 }
 
-function resolveCounterparty(
+async function resolveCounterparty(
   draft: AgreementDraftInput,
   creator: User,
-): { userId: string | null; address: string | null } {
+): Promise<{ userId: string | null; address: string | null }> {
   if (draft.providerHandle) {
-    const user = usersRepo.byHandle(draft.providerHandle);
+    const user = await usersRepo.byHandle(draft.providerHandle);
     if (user) {
       if (user.id === creator.id) {
         throw new AppError("VALIDATION_FAILED", "You cannot be both parties on an agreement.");
       }
-      return { userId: user.id, address: walletsRepo.primaryAddress(user.id) };
+      return { userId: user.id, address: await walletsRepo.primaryAddress(user.id) };
     }
   }
   if (draft.providerInviteAddress) {
-    const existing = usersRepo.byAddress(draft.providerInviteAddress);
+    const existing = await usersRepo.byAddress(draft.providerInviteAddress);
     if (existing && existing.id === creator.id) {
       throw new AppError("VALIDATION_FAILED", "You cannot be both parties on an agreement.");
     }
@@ -230,12 +231,12 @@ function buildMilestone(
  * Update a draft. Only permitted while the agreement is a draft -- once signatures
  * are being collected, the terms people are signing must stop moving.
  */
-export function updateAgreement(params: {
+export async function updateAgreement(params: {
   agreement: Agreement;
   input: unknown;
   actor: User;
   ip?: string | null;
-}): AgreementBundle {
+}): Promise<AgreementBundle> {
   if (params.agreement.status !== "draft") {
     throw new AppError(
       "INVALID_STATE_TRANSITION",
@@ -253,8 +254,8 @@ export function updateAgreement(params: {
   const draft = parsed.data;
   const now = nowIso();
 
-  return transaction(() => {
-    const updated = agreementsRepo.update({
+  return await transaction(async () => {
+    const updated = await agreementsRepo.update({
       ...params.agreement,
       title: draft.title,
       description: draft.description,
@@ -266,10 +267,11 @@ export function updateAgreement(params: {
 
     // Milestones are replaced wholesale. A draft has no payment history, so there
     // is nothing to preserve, and this keeps ordering and ids consistent.
-    milestonesRepo.deleteForAgreement(updated.id);
-    const milestones = draft.milestones.map((m, index) =>
-      milestonesRepo.insert(buildMilestone(m, updated.id, index, now)),
-    );
+    await milestonesRepo.deleteForAgreement(updated.id);
+    const milestones: Milestone[] = [];
+    for (const [index, m] of draft.milestones.entries()) {
+      milestones.push(await milestonesRepo.insert(buildMilestone(m, updated.id, index, now)));
+    }
 
     recordActivity({
       agreementId: updated.id,
@@ -291,7 +293,7 @@ export function updateAgreement(params: {
     });
 
     indexAgreement(updated, milestones);
-    return hydrate(updated);
+    return await hydrate(updated);
   });
 }
 
@@ -299,7 +301,7 @@ export function updateAgreement(params: {
 // Signature collection
 // ---------------------------------------------------------------------------
 
-export function sendForSignature(params: { agreement: Agreement; actor: User }): Agreement {
+export async function sendForSignature(params: { agreement: Agreement; actor: User }): Promise<Agreement> {
   assertAgreementTransition(
     params.agreement.status,
     "awaiting_signature",
@@ -307,7 +309,7 @@ export function sendForSignature(params: { agreement: Agreement; actor: User }):
     "send for signature",
   );
 
-  const bundle = hydrate(params.agreement);
+  const bundle = await hydrate(params.agreement);
   if (!bundle.providerAddress) {
     throw new AppError("VALIDATION_FAILED", "Add the provider's wallet address before requesting signatures.");
   }
@@ -322,7 +324,7 @@ export function sendForSignature(params: { agreement: Agreement; actor: User }):
     throw errors.amountMismatch(allocated, params.agreement.totalAmount);
   }
 
-  const updated = agreementsRepo.update({ ...params.agreement, status: "awaiting_signature" });
+  const updated = await agreementsRepo.update({ ...params.agreement, status: "awaiting_signature" });
 
   recordActivity({
     agreementId: updated.id,
@@ -352,6 +354,8 @@ export function sendForSignature(params: { agreement: Agreement; actor: User }):
  * Compute the terms hash for an agreement. Both parties sign this exact value, and
  * it is what the escrow contract stores.
  */
+// Pure: it derives hashes from an already-loaded bundle and touches no storage,
+// so it stays synchronous.
 export function computeTermsHash(bundle: AgreementBundle): {
   termsHash: `0x${string}`;
   onChainId: `0x${string}`;
@@ -368,7 +372,7 @@ export function computeTermsHash(bundle: AgreementBundle): {
   return { termsHash, onChainId };
 }
 
-export function signAgreement(params: {
+export async function signAgreement(params: {
   agreement: Agreement;
   actor: User;
   role: PartyRole;
@@ -376,7 +380,7 @@ export function signAgreement(params: {
   signature: string;
   termsHash: string;
   ip?: string | null;
-}): { agreement: Agreement; bothSigned: boolean } {
+}): Promise<{ agreement: Agreement; bothSigned: boolean }> {
   if (params.agreement.status !== "awaiting_signature") {
     throw new AppError(
       "INVALID_STATE_TRANSITION",
@@ -384,7 +388,7 @@ export function signAgreement(params: {
     );
   }
 
-  const bundle = hydrate(params.agreement);
+  const bundle = await hydrate(params.agreement);
   const { termsHash, onChainId } = computeTermsHash(bundle);
 
   // The signature must cover the terms as they exist right now. If the hash the
@@ -413,7 +417,7 @@ export function signAgreement(params: {
     method: params.signature.startsWith("simulated:") ? "simulated_signature" : "wallet_signature",
   };
 
-  return transaction(() => {
+  return await transaction(async () => {
     let next: Agreement = {
       ...params.agreement,
       clientSignature: params.role === "client" ? signature : params.agreement.clientSignature,
@@ -433,7 +437,7 @@ export function signAgreement(params: {
       };
     }
 
-    const saved = agreementsRepo.update(next);
+    const saved = await agreementsRepo.update(next);
 
     recordActivity({
       agreementId: saved.id,
@@ -500,25 +504,25 @@ export function signAgreement(params: {
 // Cancellation
 // ---------------------------------------------------------------------------
 
-export function cancelAgreement(params: {
+export async function cancelAgreement(params: {
   agreement: Agreement;
   actor: User;
   reason: string;
   ip?: string | null;
-}): Agreement {
+}): Promise<Agreement> {
   const role = roleOrSystem(params.agreement, params.actor);
   assertAgreementTransition(params.agreement.status, "cancelled", role, "cancel");
 
-  return transaction(() => {
-    const saved = agreementsRepo.update({
+  return await transaction(async () => {
+    const saved = await agreementsRepo.update({
       ...params.agreement,
       status: "cancelled",
       cancelledAt: nowIso(),
     });
 
-    for (const milestone of milestonesRepo.forAgreement(saved.id)) {
+    for (const milestone of await milestonesRepo.forAgreement(saved.id)) {
       if (milestone.status === "locked" || milestone.status === "in_progress") {
-        milestonesRepo.update({ ...milestone, status: "cancelled" });
+        await milestonesRepo.update({ ...milestone, status: "cancelled" });
       }
     }
 
@@ -556,8 +560,8 @@ function roleOrSystem(agreement: Agreement, user: User): PartyRole | "admin" {
 // Read helpers
 // ---------------------------------------------------------------------------
 
-export function listForUser(userId: string): AgreementBundle[] {
-  return agreementsRepo.forUser(userId).map(hydrate);
+export async function listForUser(userId: string): Promise<AgreementBundle[]> {
+  return Promise.all((await agreementsRepo.forUser(userId)).map((a) => hydrate(a)));
 }
 
 export interface AgreementProgress {

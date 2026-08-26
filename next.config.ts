@@ -6,17 +6,14 @@ const nextConfig: NextConfig = {
   experimental: { optimizePackageImports: ["lucide-react", "motion"] },
 
   /**
-   * `node:sqlite` is a Node builtin that webpack does not yet know about, so it
-   * gets stubbed out unless declared external. Marking it here makes the bundle
-   * emit `require("node:sqlite")` verbatim and hand it straight to Node.
+   * Database drivers must not be bundled.
+   *
+   * PGlite ships a WASM build with its own Node filesystem shim; webpack rewrites
+   * the module paths and the shim then receives a URL where it expects a string.
+   * `pg` similarly resolves optional native extras at runtime. Leaving both
+   * external hands them to Node untouched.
    */
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      const externals = Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean);
-      config.externals = [...externals, { "node:sqlite": "commonjs node:sqlite" }];
-    }
-    return config;
-  },
+  serverExternalPackages: ["@electric-sql/pglite", "pg"],
   async headers() {
     return [
       {

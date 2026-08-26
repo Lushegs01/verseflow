@@ -25,27 +25,27 @@ import { resetSimulatedChain } from "@/lib/chain/simulated-adapter";
 const CLIENT = "0x1111111111111111111111111111111111111111";
 const PROVIDER = "0x2222222222222222222222222222222222222222";
 
-function makeUser(name: string, address: string, isAdmin = false): User {
-  const u = usersRepo.create({
+async function makeUser(name: string, address: string, isAdmin = false): Promise<User> {
+  const u = await usersRepo.create({
     id: newId("usr"), handle: name.toLowerCase(), displayName: name, headline: "", bio: "",
     avatarColor: "#1D5BFF", email: null, professions: [], verification: "wallet_verified",
     isAdmin, publicProfileEnabled: false, publicMetrics: [], timezone: "UTC", createdAt: nowIso(),
   });
-  walletsRepo.add({
+  await walletsRepo.add({
     userId: u.id, address, chainId: 20197, label: "Primary", isPrimary: true, verifiedAt: nowIso(),
   });
   return u;
 }
 
-function makeAgreement(client: User, provider: User, amounts: number[]) {
+async function makeAgreement(client: User, provider: User, amounts: number[]) {
   const now = nowIso();
   const sig = (u: User, addr: string) => ({
     userId: u.id, address: addr, termsHash: "0x" + "0".repeat(64),
     signature: `simulated:${u.handle}`, signedAt: now, method: "simulated_signature" as const,
   });
 
-  const agreement = agreementsRepo.insert({
-    id: newId("agr"), reference: `VF-${1000 + agreementsRepo.nextSequence()}`,
+  const agreement = await agreementsRepo.insert({
+    id: newId("agr"), reference: `VF-${1000 + (await agreementsRepo.nextSequence())}`,
     title: "Dispute test", description: "", clientId: client.id, providerId: provider.id,
     providerInviteAddress: null, totalAmount: amounts.reduce((a, b) => a + b, 0),
     asset: "USDC", status: "awaiting_funding", agreementHash: null, onChainId: null,
@@ -55,33 +55,34 @@ function makeAgreement(client: User, provider: User, amounts: number[]) {
     isSimulated: true, createdAt: now, updatedAt: now,
   });
 
-  const milestones = amounts.map((amount, index) =>
-    milestonesRepo.insert({
+  const milestones: Milestone[] = [];
+  for (const [index, amount] of amounts.entries()) {
+    milestones.push(await milestonesRepo.insert({
       id: newId("mst"), agreementId: agreement.id, position: index,
       title: `Milestone ${index + 1}`, description: "", amount, dueAt: null,
       deliverables: [], acceptanceCriteria: [], requiredEvidence: [],
       status: "locked", revisionCount: 0, releasedAmount: 0, submittedAt: null,
       approvedAt: null, releasedAt: null, reviewDueAt: null, createdAt: now, updatedAt: now,
-    }),
-  );
+    }));
+  }
 
   return { agreement, milestones };
 }
 
 async function fund(agreement: Agreement, client: User) {
   const intent = await prepareFunding({
-    bundle: hydrate(agreement), actor: client,
+    bundle: await hydrate(agreement), actor: client,
     idempotencyKey: newId("pay") + "fund", fromAddress: CLIENT,
   });
   await confirmFunding({
-    bundle: hydrate(agreementsRepo.byId(agreement.id)!),
+    bundle: await hydrate((await agreementsRepo.byId(agreement.id))!),
     actor: client, txHash: intent.transaction.simulatedReceipt!.txHash,
   });
-  return agreementsRepo.byId(agreement.id)!;
+  return (await agreementsRepo.byId(agreement.id))!;
 }
 
-function underReview(m: Milestone): Milestone {
-  return milestonesRepo.update({ ...m, status: "under_review", submittedAt: nowIso() });
+async function underReview(m: Milestone): Promise<Milestone> {
+  return await milestonesRepo.update({ ...m, status: "under_review", submittedAt: nowIso() });
 }
 
 const detail = "The signup form posts to a spreadsheet rather than the CRM endpoint we discussed.";
@@ -91,34 +92,34 @@ let provider: User;
 let operator: User;
 let stranger: User;
 
-beforeEach(() => {
-  closeDb();
+beforeEach(async () => {
+  await closeDb();
   resetSimulatedChain();
-  const db = getDb();
+  const db = await getDb();
   for (const t of [
     "payments", "evidence_analyses", "evidence", "revision_requests", "dispute_messages",
     "disputes", "activity_events", "notifications", "milestones", "agreements",
     "wallet_addresses", "sessions", "idempotency_keys", "search_index", "analytics_events",
-  ]) db.exec(`DELETE FROM ${t}`);
-  db.exec("DELETE FROM users");
-  client = makeUser("Client", CLIENT);
-  provider = makeUser("Provider", PROVIDER);
-  operator = makeUser("Ops", "0x3333333333333333333333333333333333333333", true);
-  stranger = makeUser("Stranger", "0x4444444444444444444444444444444444444444");
+  ]) await db.query(`DELETE FROM ${t}`);
+  await db.query("DELETE FROM users");
+  client = await makeUser("Client", CLIENT);
+  provider = await makeUser("Provider", PROVIDER);
+  operator = await makeUser("Ops", "0x3333333333333333333333333333333333333333", true);
+  stranger = await makeUser("Stranger", "0x4444444444444444444444444444444444444444");
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 async function disputedSetup(amounts = [150_000]) {
-  const { agreement } = makeAgreement(client, provider, amounts);
+  const { agreement } = await makeAgreement(client, provider, amounts);
   const funded = await fund(agreement, client);
-  const milestone = underReview(milestonesRepo.forAgreement(funded.id)[0]);
+  const milestone = await underReview((await milestonesRepo.forAgreement(funded.id))[0]);
 
-  const dispute = openDispute({
-    bundle: hydrate(funded), milestone, actor: client,
+  const dispute = await openDispute({
+    bundle: await hydrate(funded), milestone, actor: client,
     input: { reason: "Scope disagreement", detail },
   });
 
-  return { agreement: agreementsRepo.byId(funded.id)!, milestone, dispute };
+  return { agreement: (await agreementsRepo.byId(funded.id))!, milestone, dispute };
 }
 
 describe("opening a dispute", () => {
@@ -126,57 +127,57 @@ describe("opening a dispute", () => {
     const { agreement, milestone, dispute } = await disputedSetup();
 
     expect(dispute.status).toBe("open");
-    expect(milestonesRepo.byId(milestone.id)!.status).toBe("disputed");
+    expect((await milestonesRepo.byId(milestone.id))!.status).toBe("disputed");
     expect(agreement.status).toBe("disputed");
   });
 
   it("either party can open one", async () => {
-    const { agreement } = makeAgreement(client, provider, [100_000]);
+    const { agreement } = await makeAgreement(client, provider, [100_000]);
     const funded = await fund(agreement, client);
-    const milestone = underReview(milestonesRepo.forAgreement(funded.id)[0]);
+    const milestone = await underReview((await milestonesRepo.forAgreement(funded.id))[0]);
 
-    const byProvider = openDispute({
-      bundle: hydrate(funded), milestone, actor: provider,
+    const byProvider = await openDispute({
+      bundle: await hydrate(funded), milestone, actor: provider,
       input: { reason: "Payment delayed", detail },
     });
     expect(byProvider.openedBy).toBe(provider.id);
   });
 
   it("a stranger cannot open one", async () => {
-    const { agreement } = makeAgreement(client, provider, [100_000]);
+    const { agreement } = await makeAgreement(client, provider, [100_000]);
     const funded = await fund(agreement, client);
-    const milestone = underReview(milestonesRepo.forAgreement(funded.id)[0]);
+    const milestone = await underReview((await milestonesRepo.forAgreement(funded.id))[0]);
 
-    expect(() =>
+    await expect(
       openDispute({
-        bundle: hydrate(funded), milestone, actor: stranger,
+        bundle: await hydrate(funded), milestone, actor: stranger,
         input: { reason: "Scope", detail },
       }),
-    ).toThrowError(expect.objectContaining({ code: "FORBIDDEN" }));
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("requires enough detail to be reviewed fairly", async () => {
-    const { agreement } = makeAgreement(client, provider, [100_000]);
+    const { agreement } = await makeAgreement(client, provider, [100_000]);
     const funded = await fund(agreement, client);
-    const milestone = underReview(milestonesRepo.forAgreement(funded.id)[0]);
+    const milestone = await underReview((await milestonesRepo.forAgreement(funded.id))[0]);
 
-    expect(() =>
+    await expect(
       openDispute({
-        bundle: hydrate(funded), milestone, actor: client,
+        bundle: await hydrate(funded), milestone, actor: client,
         input: { reason: "Bad", detail: "nope" },
       }),
-    ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+    ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
   it("cannot open a second dispute on the same milestone", async () => {
     const { agreement, milestone } = await disputedSetup();
 
-    expect(() =>
+    await expect(
       openDispute({
-        bundle: hydrate(agreement), milestone: milestonesRepo.byId(milestone.id)!,
+        bundle: await hydrate(agreement), milestone: (await milestonesRepo.byId(milestone.id))!,
         actor: provider, input: { reason: "Again", detail },
       }),
-    ).toThrowError(expect.objectContaining({ code: "CONFLICT" }));
+    ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 });
 
@@ -186,13 +187,13 @@ describe("funds are frozen while disputed", () => {
 
     await expect(
       releaseMilestone({
-        bundle: hydrate(agreement), milestone: milestonesRepo.byId(milestone.id)!,
+        bundle: await hydrate(agreement), milestone: (await milestonesRepo.byId(milestone.id))!,
         actor: client, amount: 150_000, kind: "milestone_release",
         reason: null, idempotencyKey: "release_while_disputed",
       }),
     ).rejects.toMatchObject({ code: "INVALID_STATE_TRANSITION" });
 
-    expect(paymentsRepo.confirmedTotalForMilestone(milestone.id)).toBe(0);
+    expect(await paymentsRepo.confirmedTotalForMilestone(milestone.id)).toBe(0);
   });
 
   it("an operator cannot release outside the resolution path", async () => {
@@ -200,7 +201,7 @@ describe("funds are frozen while disputed", () => {
 
     await expect(
       releaseMilestone({
-        bundle: hydrate(agreement), milestone: milestonesRepo.byId(milestone.id)!,
+        bundle: await hydrate(agreement), milestone: (await milestonesRepo.byId(milestone.id))!,
         actor: operator, amount: 150_000, kind: "milestone_release",
         reason: null, idempotencyKey: "operator_backdoor_attempt",
       }),
@@ -213,7 +214,7 @@ describe("resolution", () => {
     const { agreement, milestone, dispute } = await disputedSetup();
 
     const result = await resolveDispute({
-      dispute, bundle: hydrate(agreement), actor: client,
+      dispute, bundle: await hydrate(agreement), actor: client,
       input: {
         resolution: "negotiated", providerAmount: 112_000,
         note: "Agreed the CRM endpoint was never in the written criteria. Settled at 80%.",
@@ -225,7 +226,7 @@ describe("resolution", () => {
     expect(result.dispute.resolvedProviderAmount).toBe(112_000);
     expect(result.dispute.resolutionNote).toMatch(/never in the written criteria/);
 
-    const payment = paymentsRepo.forMilestone(milestone.id)[0];
+    const payment = (await paymentsRepo.forMilestone(milestone.id))[0];
     expect(payment.kind).toBe("dispute_settlement");
     expect(payment.amount).toBe(112_000);
     expect(payment.reason).toBeTruthy();
@@ -236,7 +237,7 @@ describe("resolution", () => {
 
     await expect(
       resolveDispute({
-        dispute, bundle: hydrate(agreement), actor: operator,
+        dispute, bundle: await hydrate(agreement), actor: operator,
         input: {
           resolution: "released_partial", providerAmount: 900_000,
           note: "Trying to over-award far beyond the milestone.",
@@ -251,7 +252,7 @@ describe("resolution", () => {
 
     await expect(
       resolveDispute({
-        dispute, bundle: hydrate(agreement), actor: provider,
+        dispute, bundle: await hydrate(agreement), actor: provider,
         input: {
           resolution: "released_full", providerAmount: 150_000,
           note: "Awarding the full amount to myself.",
@@ -265,7 +266,7 @@ describe("resolution", () => {
     const { agreement, dispute } = await disputedSetup();
 
     await resolveDispute({
-      dispute, bundle: hydrate(agreement), actor: client,
+      dispute, bundle: await hydrate(agreement), actor: client,
       input: {
         resolution: "released_full", providerAmount: 150_000,
         note: "Reviewed the evidence again and it does meet the criteria.",
@@ -273,14 +274,14 @@ describe("resolution", () => {
       },
     });
 
-    expect(agreementsRepo.byId(agreement.id)!.status).toBe("in_progress");
+    expect((await agreementsRepo.byId(agreement.id))!.status).toBe("in_progress");
   });
 
   it("cannot be resolved twice", async () => {
     const { agreement, dispute } = await disputedSetup();
 
     await resolveDispute({
-      dispute, bundle: hydrate(agreement), actor: client,
+      dispute, bundle: await hydrate(agreement), actor: client,
       input: {
         resolution: "negotiated", providerAmount: 75_000,
         note: "Split down the middle by mutual agreement.",
@@ -290,8 +291,8 @@ describe("resolution", () => {
 
     await expect(
       resolveDispute({
-        dispute: disputesRepo.byId(dispute.id)!,
-        bundle: hydrate(agreementsRepo.byId(agreement.id)!), actor: client,
+        dispute: (await disputesRepo.byId(dispute.id))!,
+        bundle: await hydrate((await agreementsRepo.byId(agreement.id))!), actor: client,
         input: {
           resolution: "released_full", providerAmount: 150_000,
           note: "Changed my mind and want to award the rest.",
@@ -306,7 +307,7 @@ describe("resolution", () => {
     const key = "replayed_settlement_key";
 
     const first = await resolveDispute({
-      dispute, bundle: hydrate(agreement), actor: client,
+      dispute, bundle: await hydrate(agreement), actor: client,
       input: {
         resolution: "negotiated", providerAmount: 90_000,
         note: "Agreed split after reviewing the acceptance criteria together.",
@@ -315,7 +316,7 @@ describe("resolution", () => {
     });
 
     const replay = await resolveDispute({
-      dispute, bundle: hydrate(agreementsRepo.byId(agreement.id)!), actor: client,
+      dispute, bundle: await hydrate((await agreementsRepo.byId(agreement.id))!), actor: client,
       input: {
         resolution: "negotiated", providerAmount: 90_000,
         note: "Agreed split after reviewing the acceptance criteria together.",
@@ -324,32 +325,32 @@ describe("resolution", () => {
     });
 
     expect(replay.dispute.id).toBe(first.dispute.id);
-    expect(paymentsRepo.forMilestone(first.milestone.id)).toHaveLength(1);
+    expect(await paymentsRepo.forMilestone(first.milestone.id)).toHaveLength(1);
   });
 });
 
 describe("messages", () => {
   it("both parties can post, a stranger cannot", async () => {
     const { agreement, dispute } = await disputedSetup();
-    const bundle = hydrate(agreement);
+    const bundle = await hydrate(agreement);
 
     expect(
-      addMessage({ dispute, actor: provider, body: "The CRM work was never scoped.", agreement: bundle }).authorId,
+      (await addMessage({ dispute, actor: provider, body: "The CRM work was never scoped.", agreement: bundle })).authorId,
     ).toBe(provider.id);
 
-    expect(() =>
+    await expect(
       addMessage({ dispute, actor: stranger, body: "Butting in.", agreement: bundle }),
-    ).toThrowError(expect.objectContaining({ code: "FORBIDDEN" }));
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("posting moves an open dispute into negotiating", async () => {
     const { agreement, dispute } = await disputedSetup();
 
-    addMessage({
-      dispute, actor: provider, agreement: hydrate(agreement),
+    await addMessage({
+      dispute, actor: provider, agreement: await hydrate(agreement),
       body: "Happy to settle at 80% and quote the integration separately.",
     });
 
-    expect(disputesRepo.byId(dispute.id)!.status).toBe("negotiating");
+    expect((await disputesRepo.byId(dispute.id))!.status).toBe("negotiating");
   });
 });

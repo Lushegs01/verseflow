@@ -107,7 +107,7 @@ export async function submitMilestone(params: {
   const submittedAt = nowIso();
 
   // Persist evidence first so the analysis runs against stored records.
-  const evidence = transaction(() => {
+  const evidence = await transaction(async () => {
     assertMilestoneTransition(
       milestone.status,
       "submitted",
@@ -119,7 +119,7 @@ export async function submitMilestone(params: {
 
     if (note.length > 0) {
       records.push(
-        evidenceRepo.insert({
+        await evidenceRepo.insert({
           id: newId("evd"),
           milestoneId: milestone.id,
           agreementId: agreement.id,
@@ -144,7 +144,7 @@ export async function submitMilestone(params: {
 
     for (const item of submission.evidence) {
       records.push(
-        evidenceRepo.insert({
+        await evidenceRepo.insert({
           id: newId("evd"),
           milestoneId: milestone.id,
           agreementId: agreement.id,
@@ -167,8 +167,8 @@ export async function submitMilestone(params: {
       );
     }
 
-    milestonesRepo.update({ ...milestone, status: "submitted", submittedAt });
-    revisionsRepo.resolveOpen(milestone.id);
+    await milestonesRepo.update({ ...milestone, status: "submitted", submittedAt });
+    await revisionsRepo.resolveOpen(milestone.id);
     return records;
   });
 
@@ -198,21 +198,21 @@ export async function submitMilestone(params: {
   // header should not lose credit for the repository they linked in round one.
   // Analyzing only the latest round would make every revision look worse than the
   // original submission, which is exactly backwards.
-  const cumulativeEvidence = evidenceRepo.forMilestone(milestone.id);
+  const cumulativeEvidence = await evidenceRepo.forMilestone(milestone.id);
   const analysis = await analyzeEvidence(
     { ...milestone, status: "submitted" },
     cumulativeEvidence,
     round,
   );
 
-  const result = transaction(() => {
-    analysisRepo.insert(analysis);
+  const result = await transaction(async () => {
+    await analysisRepo.insert(analysis);
 
-    const reviewing = milestonesRepo.byId(milestone.id);
+    const reviewing = await milestonesRepo.byId(milestone.id);
     if (!reviewing) throw errors.notFound("Milestone");
 
     assertMilestoneTransition(reviewing.status, "under_review", "system", "open review");
-    const saved = milestonesRepo.update({
+    const saved = await milestonesRepo.update({
       ...reviewing,
       status: "under_review",
       reviewDueAt: addHours(nowIso(), agreement.rules.approvalWindowHours),
@@ -301,13 +301,13 @@ export async function submitMilestone(params: {
 // Revision request
 // ---------------------------------------------------------------------------
 
-export function requestRevision(params: {
+export async function requestRevision(params: {
   bundle: AgreementBundle;
   milestone: Milestone;
   actor: User;
   input: unknown;
   ip?: string | null;
-}): { milestone: Milestone; revisionsUsed: number; revisionsAllowed: number } {
+}): Promise<{ milestone: Milestone; revisionsUsed: number; revisionsAllowed: number }> {
   const { agreement } = params.bundle;
   const milestone = params.milestone;
 
@@ -330,18 +330,18 @@ export function requestRevision(params: {
 
   const input = parsed.data;
 
-  return transaction(() => {
+  return await transaction(async () => {
     assertMilestoneTransition(milestone.status, "revision_requested", "client", "request revision");
 
     const nextCount = milestone.revisionCount + 1;
-    const saved = milestonesRepo.update({
+    const saved = await milestonesRepo.update({
       ...milestone,
       status: "revision_requested",
       revisionCount: nextCount,
       reviewDueAt: null,
     });
 
-    revisionsRepo.insert({
+    await revisionsRepo.insert({
       id: newId("rev"),
       agreementId: agreement.id,
       milestoneId: milestone.id,
@@ -413,16 +413,16 @@ export interface MilestoneDetail {
   milestone: Milestone;
   evidence: Evidence[];
   analysis: EvidenceAnalysis | null;
-  revisions: ReturnType<typeof revisionsRepo.forMilestone>;
+  revisions: Awaited<ReturnType<typeof revisionsRepo.forMilestone>>;
   remaining: number;
   isOverdue: boolean;
   reviewOverdue: boolean;
 }
 
-export function loadMilestoneDetail(milestone: Milestone): MilestoneDetail {
-  const evidence = evidenceRepo.forMilestone(milestone.id);
-  const analysis = analysisRepo.latestForMilestone(milestone.id);
-  const revisions = revisionsRepo.forMilestone(milestone.id);
+export async function loadMilestoneDetail(milestone: Milestone): Promise<MilestoneDetail> {
+  const evidence = await evidenceRepo.forMilestone(milestone.id);
+  const analysis = await analysisRepo.latestForMilestone(milestone.id);
+  const revisions = await revisionsRepo.forMilestone(milestone.id);
   const now = Date.now();
 
   return {
@@ -445,8 +445,8 @@ export async function reanalyze(milestone: Milestone): Promise<EvidenceAnalysis>
   const round = Math.max(1, milestone.revisionCount + 1);
   // Cumulative, matching `submitMilestone`: evidence from earlier rounds is still
   // valid and still counts toward the acceptance criteria.
-  const analysis = await analyzeEvidence(milestone, evidenceRepo.forMilestone(milestone.id), round);
-  analysisRepo.insert(analysis);
+  const analysis = await analyzeEvidence(milestone, await evidenceRepo.forMilestone(milestone.id), round);
+  await analysisRepo.insert(analysis);
   return analysis;
 }
 

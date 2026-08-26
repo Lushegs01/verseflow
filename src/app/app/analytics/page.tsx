@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Analytics" };
  */
 export default async function AnalyticsPage() {
   await requireAuth();
-  const metrics = computeProductMetrics();
+  const metrics = await computeProductMetrics();
 
   const eventRows = Object.entries(metrics.eventCounts)
     .sort(([, a], [, b]) => b - a)

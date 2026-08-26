@@ -11,25 +11,27 @@ export const runtime = "nodejs";
 type Params = { id: string };
 
 export const GET = route<Params>({ auth: true }, async ({ params, auth }) => {
-  const dispute = disputesRepo.byId(params.id);
+  const dispute = await disputesRepo.byId(params.id);
   if (!dispute) throw errors.notFound("Dispute");
 
-  const bundle = loadBundle(dispute.agreementId);
+  const bundle = await loadBundle(dispute.agreementId);
   if (!bundle) throw errors.notFound("Agreement");
   requireParty(bundle.agreement, auth.user);
 
-  const messages = disputesRepo.messages(dispute.id);
+  const messages = await disputesRepo.messages(dispute.id);
   const authors = new Map(
-    messages.map((m) => {
-      const user = usersRepo.byId(m.authorId);
-      return [
-        m.authorId,
-        {
-          displayName: user?.displayName ?? "Unknown",
-          avatarColor: user?.avatarColor ?? "#A8A49B",
-        },
-      ];
-    }),
+    await Promise.all(
+      messages.map(async (m) => {
+        const user = await usersRepo.byId(m.authorId);
+        return [
+          m.authorId,
+          {
+            displayName: user?.displayName ?? "Unknown",
+            avatarColor: user?.avatarColor ?? "#A8A49B",
+          },
+        ] as const;
+      }),
+    ),
   );
 
   return {
@@ -41,10 +43,10 @@ export const GET = route<Params>({ auth: true }, async ({ params, auth }) => {
 export const POST = route<Params>(
   { auth: true, rateLimit: { limit: 40, windowSeconds: 300, scope: "dispute.message" } },
   async ({ params, request, auth }) => {
-    const dispute = disputesRepo.byId(params.id);
+    const dispute = await disputesRepo.byId(params.id);
     if (!dispute) throw errors.notFound("Dispute");
 
-    const bundle = loadBundle(dispute.agreementId);
+    const bundle = await loadBundle(dispute.agreementId);
     if (!bundle) throw errors.notFound("Agreement");
     requireParty(bundle.agreement, auth.user);
 
@@ -52,7 +54,7 @@ export const POST = route<Params>(
       request,
       z.object({ body: z.string().trim().min(2).max(4000) }),
     );
-    const message = addMessage({ dispute, actor: auth.user, body, agreement: bundle });
+    const message = await addMessage({ dispute, actor: auth.user, body, agreement: bundle });
 
     return { message };
   },

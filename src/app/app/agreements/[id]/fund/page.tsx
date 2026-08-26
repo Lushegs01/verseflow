@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Fund escrow" };
 export default async function FundPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await requireAuth();
-  const bundle = loadBundle(id);
+  const bundle = await loadBundle(id);
 
   if (!bundle) notFound();
   const role = roleOn(bundle.agreement, auth.user.id);

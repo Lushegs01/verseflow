@@ -2,7 +2,10 @@
  * Schema migrations, applied in order and recorded in `_migrations`.
  *
  * Migrations are append-only: never edit one that has shipped, add a new one.
- * Money columns are INTEGER minor units throughout -- no REAL, ever.
+ * Money columns are INTEGER minor units throughout -- no floating point, ever.
+ *
+ * Written in standard Postgres so the same statements run against PGlite locally
+ * and a managed Postgres in production.
  */
 
 export interface Migration {
@@ -24,8 +27,8 @@ export const MIGRATIONS: Migration[] = [
         email TEXT,
         professions TEXT NOT NULL DEFAULT '[]',
         verification TEXT NOT NULL DEFAULT 'unverified',
-        is_admin INTEGER NOT NULL DEFAULT 0,
-        public_profile_enabled INTEGER NOT NULL DEFAULT 0,
+        is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+        public_profile_enabled BOOLEAN NOT NULL DEFAULT FALSE,
         public_metrics TEXT NOT NULL DEFAULT '[]',
         timezone TEXT NOT NULL DEFAULT 'UTC',
         created_at TEXT NOT NULL
@@ -37,7 +40,7 @@ export const MIGRATIONS: Migration[] = [
         address TEXT NOT NULL,
         chain_id INTEGER NOT NULL,
         label TEXT NOT NULL DEFAULT 'Wallet',
-        is_primary INTEGER NOT NULL DEFAULT 0,
+        is_primary BOOLEAN NOT NULL DEFAULT FALSE,
         verified_at TEXT,
         created_at TEXT NOT NULL,
         UNIQUE (address, chain_id)
@@ -77,7 +80,7 @@ export const MIGRATIONS: Migration[] = [
         started_at TEXT,
         completed_at TEXT,
         cancelled_at TEXT,
-        is_simulated INTEGER NOT NULL DEFAULT 1,
+        is_simulated BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -156,7 +159,7 @@ export const MIGRATIONS: Migration[] = [
         idempotency_key TEXT NOT NULL UNIQUE,
         reason TEXT,
         failure_reason TEXT,
-        is_simulated INTEGER NOT NULL DEFAULT 1,
+        is_simulated BOOLEAN NOT NULL DEFAULT TRUE,
         initiated_by TEXT NOT NULL REFERENCES users(id),
         created_at TEXT NOT NULL,
         confirmed_at TEXT
@@ -236,7 +239,7 @@ export const MIGRATIONS: Migration[] = [
       CREATE TABLE notification_preferences (
         user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         channels TEXT NOT NULL DEFAULT '{}',
-        digest_mode INTEGER NOT NULL DEFAULT 0
+        digest_mode BOOLEAN NOT NULL DEFAULT FALSE
       );
 
       CREATE TABLE showcase_items (
@@ -245,7 +248,7 @@ export const MIGRATIONS: Migration[] = [
         agreement_id TEXT NOT NULL REFERENCES agreements(id) ON DELETE CASCADE,
         public_title TEXT NOT NULL,
         summary TEXT NOT NULL DEFAULT '',
-        anonymize_value INTEGER NOT NULL DEFAULT 0,
+        anonymize_value BOOLEAN NOT NULL DEFAULT FALSE,
         position INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         UNIQUE (user_id, agreement_id)
@@ -258,7 +261,7 @@ export const MIGRATIONS: Migration[] = [
         anonymous_id TEXT NOT NULL,
         agreement_id TEXT,
         properties TEXT NOT NULL DEFAULT '{}',
-        forwarded INTEGER NOT NULL DEFAULT 0,
+        forwarded BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TEXT NOT NULL
       );
       CREATE INDEX idx_analytics_name ON analytics_events(name, created_at);
@@ -298,40 +301,49 @@ export const MIGRATIONS: Migration[] = [
       -- The audit log and the payment ledger are append-only. These triggers make
       -- that a database guarantee rather than a convention, so no service (and no
       -- admin tool) can quietly rewrite financial history.
-      CREATE TRIGGER audit_log_no_update
-      BEFORE UPDATE ON audit_log
-      BEGIN
-        SELECT RAISE(ABORT, 'audit_log is append-only');
-      END;
 
-      CREATE TRIGGER audit_log_no_delete
-      BEFORE DELETE ON audit_log
+      CREATE FUNCTION vf_reject_write() RETURNS trigger AS $$
       BEGIN
-        SELECT RAISE(ABORT, 'audit_log is append-only');
+        RAISE EXCEPTION '% is append-only', TG_TABLE_NAME;
       END;
+      $$ LANGUAGE plpgsql;
 
-      CREATE TRIGGER payments_no_delete
-      BEFORE DELETE ON payments
+      CREATE FUNCTION vf_reject_payment_delete() RETURNS trigger AS $$
       BEGIN
-        SELECT RAISE(ABORT, 'payments are immutable once recorded');
+        RAISE EXCEPTION 'payments are immutable once recorded';
       END;
+      $$ LANGUAGE plpgsql;
 
-      -- A confirmed payment may never change amount, recipient, or transaction hash.
-      CREATE TRIGGER payments_confirmed_immutable
-      BEFORE UPDATE ON payments
-      WHEN OLD.status = 'confirmed'
-        AND (NEW.amount <> OLD.amount
-          OR NEW.recipient_address <> OLD.recipient_address
-          OR IFNULL(NEW.tx_hash, '') <> IFNULL(OLD.tx_hash, ''))
+      -- A confirmed payment may never change amount, recipient, or transaction
+      -- hash. Other columns (a later confirmation timestamp, for instance) stay
+      -- editable, so this is a targeted guard rather than a blanket freeze.
+      CREATE FUNCTION vf_reject_confirmed_payment_change() RETURNS trigger AS $$
       BEGIN
-        SELECT RAISE(ABORT, 'confirmed payments cannot be altered');
+        IF OLD.status = 'confirmed' AND (
+             NEW.amount <> OLD.amount
+             OR NEW.recipient_address <> OLD.recipient_address
+             OR COALESCE(NEW.tx_hash, '') <> COALESCE(OLD.tx_hash, '')
+           ) THEN
+          RAISE EXCEPTION 'confirmed payments cannot be altered';
+        END IF;
+        RETURN NEW;
       END;
+      $$ LANGUAGE plpgsql;
 
-      CREATE TRIGGER activity_no_update
-      BEFORE UPDATE ON activity_events
-      BEGIN
-        SELECT RAISE(ABORT, 'activity events are append-only');
-      END;
+      CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON audit_log
+        FOR EACH ROW EXECUTE FUNCTION vf_reject_write();
+
+      CREATE TRIGGER audit_log_no_delete BEFORE DELETE ON audit_log
+        FOR EACH ROW EXECUTE FUNCTION vf_reject_write();
+
+      CREATE TRIGGER activity_no_update BEFORE UPDATE ON activity_events
+        FOR EACH ROW EXECUTE FUNCTION vf_reject_write();
+
+      CREATE TRIGGER payments_no_delete BEFORE DELETE ON payments
+        FOR EACH ROW EXECUTE FUNCTION vf_reject_payment_delete();
+
+      CREATE TRIGGER payments_confirmed_immutable BEFORE UPDATE ON payments
+        FOR EACH ROW EXECUTE FUNCTION vf_reject_confirmed_payment_change();
     `,
   },
   {
@@ -348,12 +360,33 @@ export const MIGRATIONS: Migration[] = [
         subtitle TEXT NOT NULL DEFAULT '',
         body TEXT NOT NULL DEFAULT '',
         href TEXT NOT NULL,
-        is_public INTEGER NOT NULL DEFAULT 0,
+        is_public BOOLEAN NOT NULL DEFAULT FALSE,
         updated_at TEXT NOT NULL,
         UNIQUE (entity_type, entity_id)
       );
-      CREATE INDEX idx_search_title ON search_index(title);
+      CREATE INDEX idx_search_title ON search_index(lower(title));
       CREATE INDEX idx_search_type ON search_index(entity_type);
     `,
   },
 ];
+
+/**
+ * Tables cleared by a demo reset, children before parents so cascades never
+ * surprise us. Shared by the seed and the reset script.
+ */
+export const TABLES_IN_DEPENDENCY_ORDER = [
+  "search_index", "analytics_events", "idempotency_keys", "rate_limits",
+  "evidence_analyses", "evidence", "revision_requests", "dispute_messages",
+  "disputes", "notifications", "notification_preferences", "showcase_items",
+  "payments", "activity_events", "audit_log",
+  "milestones", "agreements", "sessions", "wallet_addresses", "users",
+] as const;
+
+/** Triggers dropped and reinstated around a full wipe. */
+export const IMMUTABILITY_TRIGGERS = [
+  { name: "audit_log_no_update", table: "audit_log", when: "BEFORE UPDATE", fn: "vf_reject_write" },
+  { name: "audit_log_no_delete", table: "audit_log", when: "BEFORE DELETE", fn: "vf_reject_write" },
+  { name: "activity_no_update", table: "activity_events", when: "BEFORE UPDATE", fn: "vf_reject_write" },
+  { name: "payments_no_delete", table: "payments", when: "BEFORE DELETE", fn: "vf_reject_payment_delete" },
+  { name: "payments_confirmed_immutable", table: "payments", when: "BEFORE UPDATE", fn: "vf_reject_confirmed_payment_change" },
+] as const;

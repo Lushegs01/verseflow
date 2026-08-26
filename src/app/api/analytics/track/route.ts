@@ -28,7 +28,7 @@ export const POST = route(
   { rateLimit: { limit: 120, windowSeconds: 60, scope: "analytics.track" } },
   async ({ request, auth }) => {
     const body = await parseBody(request, schema);
-    track({
+    await track({
       name: body.name,
       userId: auth?.user.id ?? null,
       anonymousId: body.anonymousId,

@@ -31,7 +31,7 @@ export async function generateMetadata({
   const auth = await getAuth();
   if (!auth) return { title: "Agreement", robots: { index: false } };
 
-  const bundle = loadBundle(id);
+  const bundle = await loadBundle(id);
   const visible = bundle && (roleOn(bundle.agreement, auth.user.id) !== null || auth.user.isAdmin);
 
   return {
@@ -46,7 +46,7 @@ export default async function AgreementPage({
 }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await requireAuth();
-  const bundle = loadBundle(id);
+  const bundle = await loadBundle(id);
 
   // Not being a party is indistinguishable from the agreement not existing, so
   // the existence of private agreements is never leaked.
@@ -58,13 +58,13 @@ export default async function AgreementPage({
   const progress = computeProgress(bundle);
   const chain = publicChainInfo();
   const statusMeta = AGREEMENT_STATUS_META[agreement.status];
-  const activity = activityRepo.forAgreement(agreement.id);
-  const disputes = disputesRepo.forAgreement(agreement.id);
-  const payments = paymentsRepo.forAgreement(agreement.id);
+  const activity = await activityRepo.forAgreement(agreement.id);
+  const disputes = await disputesRepo.forAgreement(agreement.id);
+  const payments = await paymentsRepo.forAgreement(agreement.id);
   const isClient = role === "client";
 
   const current = progress.currentMilestone;
-  const currentAnalysis = current ? analysisRepo.latestForMilestone(current.id) : null;
+  const currentAnalysis = current ? await analysisRepo.latestForMilestone(current.id) : null;
   const openDispute = disputes.find((d) => d.status !== "resolved" && d.status !== "withdrawn");
 
   return (

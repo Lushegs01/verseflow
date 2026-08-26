@@ -14,18 +14,18 @@ type Params = { id: string; milestoneId: string };
 export const POST = route<Params>(
   { auth: true, rateLimit: { limit: 30, windowSeconds: 60, scope: "milestone.partial" } },
   async ({ params, request, auth, ip }) => {
-    const bundle = loadBundle(params.id);
+    const bundle = await loadBundle(params.id);
     if (!bundle) throw errors.notFound("Agreement");
     requireRole(bundle.agreement, auth.user, "client");
     assertNotSelfDealing(bundle.agreement, auth.user, "approve");
 
-    const milestone = milestonesRepo.byId(params.milestoneId);
+    const milestone = await milestonesRepo.byId(params.milestoneId);
     if (!milestone || milestone.agreementId !== bundle.agreement.id) {
       throw errors.notFound("Milestone");
     }
 
     const body = await parseBody(request, partialApprovalSchema);
-    const remaining = remainingFor(milestone);
+    const remaining = await remainingFor(milestone);
 
     const result = await releaseMilestone({
       bundle,

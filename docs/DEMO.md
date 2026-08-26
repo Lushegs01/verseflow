@@ -165,7 +165,7 @@ The claims in this product are testable. A few worth trying:
 | Open a URL for an agreement you are not party to | Not found. Not "forbidden" — the existence of private agreements is never revealed, including in the page title. |
 | Edit a milestone amount so the total no longer matches | The allocation bar turns red and the agreement cannot be created. |
 | Open a dispute | The milestone freezes. Neither party can release while it is open. |
-| Reload anything | State persists. It is all in SQLite. |
+| Reload anything | State persists. It is all in Postgres. |
 
 Reset at any time with **Reset demo** in the banner, or `npm run db:reset`.
 

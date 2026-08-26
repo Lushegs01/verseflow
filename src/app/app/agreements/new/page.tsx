@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Create an agreement" };
 
 export default async function NewAgreementPage() {
   const auth = await requireAuth();
-  const wallets = walletsRepo.forUser(auth.user.id);
+  const wallets = await walletsRepo.forUser(auth.user.id);
 
   return (
     <AgreementBuilder

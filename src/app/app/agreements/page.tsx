@@ -16,7 +16,7 @@ export default async function AgreementsPage({
 }: { searchParams: Promise<{ filter?: string }> }) {
   const auth = await requireAuth();
   const { filter = "active" } = await searchParams;
-  const bundles = listForUser(auth.user.id);
+  const bundles = await listForUser(auth.user.id);
 
   const buckets = {
     active: bundles.filter((b) =>

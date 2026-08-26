@@ -7,10 +7,10 @@ export const runtime = "nodejs";
 
 /** Move a draft into signature collection. */
 export const POST = route<{ id: string }>({ auth: true }, async ({ params, auth }) => {
-  const bundle = loadBundle(params.id);
+  const bundle = await loadBundle(params.id);
   if (!bundle) throw errors.notFound("Agreement");
   requireParty(bundle.agreement, auth.user);
 
-  const agreement = sendForSignature({ agreement: bundle.agreement, actor: auth.user });
+  const agreement = await sendForSignature({ agreement: bundle.agreement, actor: auth.user });
   return { agreement };
 });

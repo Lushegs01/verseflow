@@ -18,7 +18,7 @@ export const POST = route(
     const { agreementId } = await parseBody(request, z.object({ agreementId: z.string().min(1) }));
     const result = await reconcile(agreementId);
 
-    audit({
+    await audit({
       actorId: auth.user.id,
       action: "admin.reconcile",
       entityType: "agreement",

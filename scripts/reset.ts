@@ -4,11 +4,11 @@ import { closeDb } from "../src/lib/db/client";
 
 async function main() {
   console.log("Clearing database...");
-  clearAllData();
+  await clearAllData();
   console.log("Seeding demo data...");
   const result = await seedDemoData();
   console.log(`Done. Headline agreement: ${result.headlineAgreementId}`);
-  closeDb();
+  await closeDb();
 }
 
 main().catch((error) => {

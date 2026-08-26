@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (chain.mode === "simulated") {
     try {
-      hydrateSimulatedEscrowFromDb();
+      await hydrateSimulatedEscrowFromDb();
     } catch (error) {
       console.error("[verseflow] could not rebuild simulated escrow state", error);
     }
@@ -47,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         chainId: chain.chainId,
         hasExplorer: chain.hasExplorer,
       }}
-      unreadCount={notificationsRepo.unreadCount(auth.user.id)}
+      unreadCount={await notificationsRepo.unreadCount(auth.user.id)}
       demoPersona={demoPersona}
     >
       {children}

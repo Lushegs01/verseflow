@@ -13,10 +13,10 @@ export const runtime = "nodejs";
 export const POST = route<{ id: string }>(
   { auth: true, rateLimit: { limit: 120, windowSeconds: 60, scope: "payment.confirm" } },
   async ({ params, auth, ip }) => {
-    const payment = paymentsRepo.byId(params.id);
+    const payment = await paymentsRepo.byId(params.id);
     if (!payment) throw errors.notFound("Payment");
 
-    const agreement = agreementsRepo.byId(payment.agreementId);
+    const agreement = await agreementsRepo.byId(payment.agreementId);
     if (!agreement) throw errors.notFound("Agreement");
     requireParty(agreement, auth.user);
 

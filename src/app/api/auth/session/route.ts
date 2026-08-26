@@ -23,8 +23,8 @@ export const GET = route({}, async () => {
       publicProfileEnabled: auth.user.publicProfileEnabled,
     },
     address: auth.address,
-    wallets: walletsRepo.forUser(auth.user.id),
-    unreadNotifications: notificationsRepo.unreadCount(auth.user.id),
+    wallets: await walletsRepo.forUser(auth.user.id),
+    unreadNotifications: await notificationsRepo.unreadCount(auth.user.id),
     chain,
   };
 });

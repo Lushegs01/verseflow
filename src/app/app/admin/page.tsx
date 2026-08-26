@@ -34,20 +34,19 @@ export default async function AdminPage() {
   if (!auth.user.isAdmin) redirect("/app");
 
   const chain = publicChainInfo();
-  const metrics = computeProductMetrics();
-  const agreements = agreementsRepo.all();
-  const users = usersRepo.all();
-  const payments = paymentsRepo.all();
-  const disputes = disputesRepo.all();
-  const audit = auditRepo.recent(30);
+  const metrics = await computeProductMetrics();
+  const agreements = await agreementsRepo.all();
+  const users = await usersRepo.all();
+  const payments = await paymentsRepo.all();
+  const disputes = await disputesRepo.all();
+  const audit = await auditRepo.recent(30);
 
   const openDisputes = disputes.filter((d) => d.status !== "resolved" && d.status !== "withdrawn");
   const failedPayments = payments.filter((p) => p.status === "failed");
   const pendingPayments = payments.filter((p) => p.status === "pending" || p.status === "submitted");
 
   // Flagged activity: things a human should look at, ranked by how much money is at stake.
-  const overdueReviews = milestonesRepo
-    .all()
+  const overdueReviews = (await milestonesRepo.all())
     .filter(
       (m) =>
         m.status === "under_review" &&
@@ -56,12 +55,23 @@ export default async function AdminPage() {
     )
     .sort((a, b) => b.amount - a.amount);
 
-  const escrowHeld = agreements
-    .filter((a) => ["funded", "in_progress", "disputed", "paused"].includes(a.status))
-    .reduce((sum, a) => {
-      const released = milestonesRepo.forAgreement(a.id).reduce((x, m) => x + m.releasedAmount, 0);
-      return sum + Math.max(0, a.totalAmount - released);
-    }, 0);
+  const activeAgreements = agreements
+    .filter((a) => ["funded", "in_progress", "disputed", "paused"].includes(a.status));
+
+  let escrowHeld = 0;
+  for (const a of activeAgreements) {
+    const released = (await milestonesRepo.forAgreement(a.id)).reduce((x, m) => x + m.releasedAmount, 0);
+    escrowHeld += Math.max(0, a.totalAmount - released);
+  }
+
+  // Server components cannot await inside a render callback, so the lookups the
+  // JSX needs are resolved up front and read from a Map.
+  const disputedMilestones = new Map(
+    (await Promise.all(openDisputes.map((d) => milestonesRepo.byId(d.milestoneId))))
+      .filter((m): m is NonNullable<typeof m> => m !== null)
+      .map((m) => [m.id, m]),
+  );
+  const usersById = new Map(users.map((u) => [u.id, u]));
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -127,7 +137,7 @@ export default async function AdminPage() {
 
           {openDisputes.map((dispute) => {
             const agreement = agreements.find((a) => a.id === dispute.agreementId);
-            const milestone = milestonesRepo.byId(dispute.milestoneId);
+            const milestone = disputedMilestones.get(dispute.milestoneId) ?? null;
             return (
               <Card key={dispute.id} className="border-danger-border p-4">
                 <div className="flex flex-wrap items-start gap-3">
@@ -292,7 +302,7 @@ export default async function AdminPage() {
           ) : (
             <ul className="divide-y divide-line-subtle">
               {audit.map((entry) => {
-                const actor = entry.actorId ? usersRepo.byId(entry.actorId) : null;
+                const actor = entry.actorId ? usersById.get(entry.actorId) ?? null : null;
                 return (
                   <li key={entry.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
                     <span className="font-mono text-[10px] tabular text-faint">

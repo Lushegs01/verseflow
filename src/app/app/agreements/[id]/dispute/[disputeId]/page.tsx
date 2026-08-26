@@ -17,30 +17,32 @@ export default async function DisputePage({
 }: { params: Promise<{ id: string; disputeId: string }> }) {
   const { id, disputeId } = await params;
   const auth = await requireAuth();
-  const bundle = loadBundle(id);
+  const bundle = await loadBundle(id);
 
   if (!bundle) notFound();
   const role = roleOn(bundle.agreement, auth.user.id);
   if (!role && !auth.user.isAdmin) notFound();
 
-  const dispute = disputesRepo.byId(disputeId);
+  const dispute = await disputesRepo.byId(disputeId);
   if (!dispute || dispute.agreementId !== bundle.agreement.id) notFound();
 
-  const milestone = milestonesRepo.byId(dispute.milestoneId);
+  const milestone = await milestonesRepo.byId(dispute.milestoneId);
   if (!milestone) notFound();
 
-  const detail = loadMilestoneDetail(milestone);
-  const messages = disputesRepo.messages(dispute.id).map((m) => {
-    const author = usersRepo.byId(m.authorId);
+  const detail = await loadMilestoneDetail(milestone);
+  const messages = await Promise.all(
+    (await disputesRepo.messages(dispute.id)).map(async (m) => {
+    const author = await usersRepo.byId(m.authorId);
     return {
       ...m,
       authorName: author?.displayName ?? "Unknown",
       authorColor: author?.avatarColor ?? "#A8A49B",
       isYou: m.authorId === auth.user.id,
     };
-  });
+    }),
+  );
 
-  const openedBy = usersRepo.byId(dispute.openedBy);
+  const openedBy = await usersRepo.byId(dispute.openedBy);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
@@ -60,9 +62,9 @@ export default async function DisputePage({
         analysis={detail.analysis}
         revisions={detail.revisions}
         messages={messages}
-        activity={activityRepo.forAgreement(bundle.agreement.id)}
+        activity={await activityRepo.forAgreement(bundle.agreement.id)}
         asset={bundle.agreement.asset}
-        remaining={remainingFor(milestone)}
+        remaining={await remainingFor(milestone)}
         viewerRole={auth.user.isAdmin && !role ? "operator" : (role ?? "client")}
         isAdmin={auth.user.isAdmin}
         clientName={bundle.client?.displayName ?? "Client"}

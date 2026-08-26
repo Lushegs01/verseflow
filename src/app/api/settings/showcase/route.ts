@@ -10,7 +10,7 @@ import { track } from "@/lib/services/activity";
 export const runtime = "nodejs";
 
 export const GET = route({ auth: true }, async ({ auth }) => ({
-  items: showcaseRepo.forUser(auth.user.id),
+  items: await showcaseRepo.forUser(auth.user.id),
 }));
 
 /**
@@ -20,25 +20,25 @@ export const GET = route({ auth: true }, async ({ auth }) => ({
 export const POST = route({ auth: true }, async ({ request, auth }) => {
   const body = await parseBody(request, showcaseSchema);
 
-  const agreement = agreementsRepo.byId(body.agreementId);
+  const agreement = await agreementsRepo.byId(body.agreementId);
   if (!agreement) throw errors.notFound("Agreement");
   if (!roleOn(agreement, auth.user.id)) throw errors.notFound("Agreement");
   if (agreement.status !== "completed") {
     throw errors.forbidden("Only completed agreements can be published.");
   }
 
-  const item = showcaseRepo.upsert({
+  const item = await showcaseRepo.upsert({
     id: newId("shw"),
     userId: auth.user.id,
     agreementId: body.agreementId,
     publicTitle: body.publicTitle,
     summary: body.summary,
     anonymizeValue: body.anonymizeValue,
-    position: showcaseRepo.forUser(auth.user.id).length,
+    position: (await showcaseRepo.forUser(auth.user.id)).length,
     createdAt: nowIso(),
   });
 
-  track({
+  await track({
     name: "public_agreement_shared",
     userId: auth.user.id,
     agreementId: agreement.id,
@@ -50,6 +50,6 @@ export const POST = route({ auth: true }, async ({ request, auth }) => {
 
 export const DELETE = route({ auth: true }, async ({ request, auth }) => {
   const { id } = await parseBody(request, z.object({ id: z.string().min(1) }));
-  showcaseRepo.remove(id, auth.user.id);
+  await showcaseRepo.remove(id, auth.user.id);
   return { ok: true };
 });

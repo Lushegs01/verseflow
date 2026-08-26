@@ -23,7 +23,7 @@ export const POST = route(
       totalAmountHint: body.totalAmountHint,
     });
 
-    track({
+    await track({
       name: "ai_agreement_generated",
       userId: auth.user.id,
       properties: {

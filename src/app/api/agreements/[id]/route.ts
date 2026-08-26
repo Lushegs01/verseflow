@@ -12,13 +12,13 @@ export const runtime = "nodejs";
 type Params = { id: string };
 
 export const GET = route<Params>({ auth: true }, async ({ params, auth }) => {
-  const bundle = loadBundle(params.id);
+  const bundle = await loadBundle(params.id);
   if (!bundle) throw errors.notFound("Agreement");
   requireParty(bundle.agreement, auth.user);
 
   return {
     agreement: bundle.agreement,
-    milestones: bundle.milestones.map((m) => loadMilestoneDetail(m)),
+    milestones: await Promise.all(bundle.milestones.map((m) => loadMilestoneDetail(m))),
     progress: computeProgress(bundle),
     role: roleOn(bundle.agreement, auth.user.id),
     client: bundle.client && {
@@ -31,25 +31,25 @@ export const GET = route<Params>({ auth: true }, async ({ params, auth }) => {
     },
     clientAddress: bundle.clientAddress,
     providerAddress: bundle.providerAddress,
-    activity: activityRepo.forAgreement(bundle.agreement.id),
-    payments: paymentsRepo.forAgreement(bundle.agreement.id),
-    disputes: disputesRepo.forAgreement(bundle.agreement.id),
+    activity: await activityRepo.forAgreement(bundle.agreement.id),
+    payments: await paymentsRepo.forAgreement(bundle.agreement.id),
+    disputes: await disputesRepo.forAgreement(bundle.agreement.id),
   };
 });
 
 export const PATCH = route<Params>({ auth: true }, async ({ params, request, auth, ip }) => {
-  const bundle = loadBundle(params.id);
+  const bundle = await loadBundle(params.id);
   if (!bundle) throw errors.notFound("Agreement");
   requireParty(bundle.agreement, auth.user);
 
   const draft = await parseBody(request, agreementDraftSchema);
-  const updated = updateAgreement({ agreement: bundle.agreement, input: draft, actor: auth.user, ip });
+  const updated = await updateAgreement({ agreement: bundle.agreement, input: draft, actor: auth.user, ip });
 
   return { agreement: updated.agreement, milestones: updated.milestones };
 });
 
 export const DELETE = route<Params>({ auth: true }, async ({ params, request, auth, ip }) => {
-  const bundle = loadBundle(params.id);
+  const bundle = await loadBundle(params.id);
   if (!bundle) throw errors.notFound("Agreement");
   requireParty(bundle.agreement, auth.user);
 
@@ -58,6 +58,6 @@ export const DELETE = route<Params>({ auth: true }, async ({ params, request, au
     z.object({ reason: z.string().trim().min(3).max(500).default("Cancelled by a party.") }),
   );
 
-  const agreement = cancelAgreement({ agreement: bundle.agreement, actor: auth.user, reason, ip });
+  const agreement = await cancelAgreement({ agreement: bundle.agreement, actor: auth.user, reason, ip });
   return { agreement };
 });

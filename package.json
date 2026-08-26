@@ -20,11 +20,13 @@
     "setup": "npm run db:reset"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "clsx": "2.1.1",
     "lucide-react": "0.469.0",
     "motion": "12.0.0",
     "nanoid": "5.0.9",
     "next": "15.5.4",
+    "pg": "^8.23.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "tailwind-merge": "2.6.0",
@@ -34,6 +36,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "22.10.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "19.0.7",
     "@types/react-dom": "19.0.3",
     "postcss": "8.5.1",

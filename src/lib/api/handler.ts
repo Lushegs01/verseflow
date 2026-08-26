@@ -64,7 +64,7 @@ export function route<P = Record<string, string>>(
 
       if (options.rateLimit) {
         const bucket = `${options.rateLimit.scope}:${auth?.user.id ?? ip ?? "anonymous"}`;
-        const allowed = rateLimitRepo.consume(
+        const allowed = await rateLimitRepo.consume(
           bucket,
           options.rateLimit.limit,
           options.rateLimit.windowSeconds,

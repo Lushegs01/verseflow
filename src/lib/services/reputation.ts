@@ -20,8 +20,8 @@ import {
 import type { Agreement, PublicMetricKey, Reputation, User } from "@/lib/domain/types";
 import { daysBetween } from "@/lib/domain/ids";
 
-export function computeReputation(userId: string): Reputation {
-  const agreements = agreementsRepo.forUser(userId);
+export async function computeReputation(userId: string): Promise<Reputation> {
+  const agreements = await agreementsRepo.forUser(userId);
   const asProvider = agreements.filter((a) => a.providerId === userId);
   const completed = asProvider.filter((a) => a.status === "completed");
 
@@ -35,12 +35,12 @@ export function computeReputation(userId: string): Reputation {
   const completionDurations: number[] = [];
 
   for (const agreement of asProvider) {
-    const payments = paymentsRepo
-      .forAgreement(agreement.id)
-      .filter((p) => p.status === "confirmed" && p.kind !== "refund");
+    const payments = (await paymentsRepo.forAgreement(agreement.id)).filter(
+      (p) => p.status === "confirmed" && p.kind !== "refund",
+    );
     valueSettled += payments.reduce((a, p) => a + p.amount, 0);
 
-    const milestones = milestonesRepo.forAgreement(agreement.id);
+    const milestones = await milestonesRepo.forAgreement(agreement.id);
     milestonesTotal += milestones.length;
 
     for (const milestone of milestones) {
@@ -58,7 +58,8 @@ export function computeReputation(userId: string): Reputation {
     }
   }
 
-  const disputes = asProvider.flatMap((a) => disputesRepo.forAgreement(a.id));
+  const disputes: Awaited<ReturnType<typeof disputesRepo.forAgreement>> = [];
+  for (const a of asProvider) disputes.push(...(await disputesRepo.forAgreement(a.id)));
   const realDisputes = disputes.filter((d) => d.status !== "withdrawn");
 
   // Repeat-client rate: share of this provider's agreements that came from a client
@@ -129,11 +130,11 @@ const METRIC_LABELS: Record<PublicMetricKey, { label: string; caption: string }>
  * Build a public profile. Returns null when the user has not opted in -- the
  * absence of a profile is itself private, so callers render a plain 404.
  */
-export function buildPublicProfile(handle: string): PublicProfile | null {
-  const user = usersRepo.byHandle(handle);
+export async function buildPublicProfile(handle: string): Promise<PublicProfile | null> {
+  const user = await usersRepo.byHandle(handle);
   if (!user || !user.publicProfileEnabled) return null;
 
-  const reputation = computeReputation(user.id);
+  const reputation = await computeReputation(user.id);
   const allowed = new Set(user.publicMetrics);
 
   const metrics = (Object.keys(METRIC_LABELS) as PublicMetricKey[])
@@ -145,18 +146,19 @@ export function buildPublicProfile(handle: string): PublicProfile | null {
       value: formatMetric(key, reputation),
     }));
 
-  const showcase = showcaseRepo.forUser(user.id).flatMap((item) => {
-    const agreement = agreementsRepo.byId(item.agreementId);
+  const showcase: PublicProfile["showcase"] = [];
+  for (const item of await showcaseRepo.forUser(user.id)) {
+    const agreement = await agreementsRepo.byId(item.agreementId);
     // Only completed agreements the user still owns a side of can be showcased.
-    if (!agreement || agreement.status !== "completed") return [];
-    if (agreement.providerId !== user.id && agreement.clientId !== user.id) return [];
+    if (!agreement || agreement.status !== "completed") continue;
+    if (agreement.providerId !== user.id && agreement.clientId !== user.id) continue;
 
-    const milestones = milestonesRepo.forAgreement(agreement.id);
+    const milestones = await milestonesRepo.forAgreement(agreement.id);
     const onTime = milestones.every(
       (m) => !m.dueAt || !m.releasedAt || Date.parse(m.releasedAt) <= Date.parse(m.dueAt),
     );
 
-    return [
+    showcase.push(
       {
         id: item.id,
         title: item.publicTitle,
@@ -169,8 +171,8 @@ export function buildPublicProfile(handle: string): PublicProfile | null {
         completedOnTime: onTime,
         completedAt: agreement.completedAt,
       },
-    ];
-  });
+    );
+  }
 
   return {
     user: {
@@ -228,9 +230,8 @@ function valueBand(minor: number): string {
 }
 
 /** Agreements a user may add to their public profile. */
-export function showcaseCandidates(userId: string): Agreement[] {
-  return agreementsRepo
-    .forUser(userId)
+export async function showcaseCandidates(userId: string): Promise<Agreement[]> {
+  return (await agreementsRepo.forUser(userId))
     .filter((a) => a.status === "completed")
     .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
 }

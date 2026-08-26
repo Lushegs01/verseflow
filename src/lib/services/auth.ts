@@ -99,12 +99,12 @@ export async function signIn(params: {
 
   store.delete(NONCE_COOKIE);
 
-  let user = usersRepo.byAddress(params.address);
+  let user = await usersRepo.byAddress(params.address);
   if (!user) {
-    user = createUserForAddress(params.address, params.displayName);
+    user = await createUserForAddress(params.address, params.displayName);
   }
 
-  const session = sessionsRepo.create(user.id, params.address, cfg.chainId);
+  const session = await sessionsRepo.create(user.id, params.address, cfg.chainId);
   store.set(SESSION_COOKIE, session.id, {
     httpOnly: true,
     sameSite: "lax",
@@ -116,9 +116,9 @@ export async function signIn(params: {
   return { user, address: params.address, sessionId: session.id };
 }
 
-function createUserForAddress(address: string, displayName?: string): User {
+async function createUserForAddress(address: string, displayName?: string): Promise<User> {
   const short = `${address.slice(2, 6)}${address.slice(-4)}`.toLowerCase();
-  const user = usersRepo.create({
+  const user = await usersRepo.create({
     id: newId("usr"),
     handle: displayName ? slugify(displayName, short) : `user-${short}`,
     displayName: displayName ?? `Wallet ${address.slice(0, 6)}`,
@@ -135,7 +135,7 @@ function createUserForAddress(address: string, displayName?: string): User {
     createdAt: nowIso(),
   });
 
-  walletsRepo.add({
+  await walletsRepo.add({
     userId: user.id,
     address,
     chainId: getChainConfig().chainId,
@@ -144,7 +144,7 @@ function createUserForAddress(address: string, displayName?: string): User {
     verifiedAt: nowIso(),
   });
 
-  notificationsRepo.savePreferences({
+  await notificationsRepo.savePreferences({
     userId: user.id,
     channels: {} as never,
     digestMode: false,
@@ -168,7 +168,7 @@ function pickColor(seed: string): string {
 export async function signOut(): Promise<void> {
   const store = await cookies();
   const sessionId = store.get(SESSION_COOKIE)?.value;
-  if (sessionId) sessionsRepo.destroy(sessionId);
+  if (sessionId) await sessionsRepo.destroy(sessionId);
   store.delete(SESSION_COOKIE);
 }
 
@@ -181,10 +181,10 @@ export async function getAuth(): Promise<AuthContext | null> {
   const sessionId = store.get(SESSION_COOKIE)?.value;
   if (!sessionId) return null;
 
-  const session = sessionsRepo.byId(sessionId);
+  const session = await sessionsRepo.byId(sessionId);
   if (!session) return null;
 
-  const user = usersRepo.byId(session.userId);
+  const user = await usersRepo.byId(session.userId);
   if (!user) return null;
 
   return { user, address: session.address, sessionId };

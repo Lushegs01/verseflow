@@ -163,6 +163,53 @@ to the UI becomes `simulated`, so every surface labels itself accordingly.
 
 ---
 
+## The database layer
+
+One dialect, two drivers, chosen by whether `DATABASE_URL` is set:
+
+| | Driver | Where |
+|---|---|---|
+| `DATABASE_URL` set | `pg` | Production (Vercel + managed Postgres) |
+| unset | PGlite | Local development, CI, tests |
+
+PGlite is Postgres compiled to WASM running in-process — not a different database.
+The same SQL, the same plpgsql triggers, the same transaction semantics. That keeps
+`git clone && npm test` working with no database server while giving production real
+dialect parity, which a SQLite-for-dev split could not.
+
+### Transactions and AsyncLocalStorage
+
+Repositories take an optional `Executor`. When none is passed they consult the
+transaction currently in scope before falling back to the pool:
+
+```ts
+async function exec(db?: Executor): Promise<Executor> {
+  return db ?? currentTransaction() ?? (await getDb());
+}
+```
+
+`transaction()` pins a connection and runs the callback inside an
+`AsyncLocalStorage` context holding that connection. Any repository call made
+anywhere inside — including from a helper several frames deep that never received a
+handle — automatically joins the transaction.
+
+This matters more than it looks. Without it, `pg` would hand those calls a
+*different* pooled connection: they would commit independently, and a rollback would
+leave them behind. The failure is invisible locally, because PGlite has a single
+connection and behaves correctly either way. Threading a handle through every call
+site would also work, but it is 200+ call sites of opportunity to forget one.
+
+Nested `transaction()` calls join the outer transaction rather than opening a second
+one, so a service composing two transactional helpers still commits atomically.
+
+### Multi-statement DDL
+
+`Executor` exposes `exec(sql)` alongside `query(sql, params)`. A parameterized
+statement can only ever carry one command, so migrations — which are multi-statement
+DDL scripts — go down the `exec` path. Everything else uses parameters, always.
+
+---
+
 ## Data model
 
 | Entity | Notes |
@@ -193,8 +240,8 @@ idempotency keys from together exceeding the milestone. A test covers exactly th
 
 ### Immutability as a database guarantee
 
-Migration `0002_audit_immutability` installs triggers so append-only is enforced by SQLite,
-not by convention:
+Migration `0002_audit_immutability` installs plpgsql triggers so append-only is enforced
+by the database, not by convention:
 
 - `payments` cannot be deleted
 - confirmed payments reject any change to `amount`, `recipient_address`, or `tx_hash`

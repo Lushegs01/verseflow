@@ -5,7 +5,7 @@ import { notificationsRepo } from "@/lib/db/repositories";
 export const runtime = "nodejs";
 
 export const GET = route({ auth: true }, async ({ auth }) => ({
-  preferences: notificationsRepo.preferences(auth.user.id),
+  preferences: await notificationsRepo.preferences(auth.user.id),
 }));
 
 export const PATCH = route({ auth: true }, async ({ request, auth }) => {
@@ -17,11 +17,11 @@ export const PATCH = route({ auth: true }, async ({ request, auth }) => {
     }),
   );
 
-  notificationsRepo.savePreferences({
+  await notificationsRepo.savePreferences({
     userId: auth.user.id,
     channels: body.channels as never,
     digestMode: body.digestMode,
   });
 
-  return { preferences: notificationsRepo.preferences(auth.user.id) };
+  return { preferences: await notificationsRepo.preferences(auth.user.id) };
 });

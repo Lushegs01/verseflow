@@ -10,7 +10,7 @@ type Params = { id: string };
 
 /** The exact terms hash a party is about to sign, plus a human-readable preimage. */
 export const GET = route<Params>({ auth: true }, async ({ params, auth }) => {
-  const bundle = loadBundle(params.id);
+  const bundle = await loadBundle(params.id);
   if (!bundle) throw errors.notFound("Agreement");
   const role = requireParty(bundle.agreement, auth.user);
 
@@ -38,13 +38,13 @@ export const GET = route<Params>({ auth: true }, async ({ params, auth }) => {
 export const POST = route<Params>(
   { auth: true, rateLimit: { limit: 20, windowSeconds: 60, scope: "agreements.sign" } },
   async ({ params, request, auth, ip }) => {
-    const bundle = loadBundle(params.id);
+    const bundle = await loadBundle(params.id);
     if (!bundle) throw errors.notFound("Agreement");
     const role = requireParty(bundle.agreement, auth.user);
 
     const body = await parseBody(request, signatureSchema);
 
-    const result = signAgreement({
+    const result = await signAgreement({
       agreement: bundle.agreement,
       actor: auth.user,
       role,

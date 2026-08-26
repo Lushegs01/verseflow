@@ -6,7 +6,7 @@
  * without needing to trust anyone's summary.
  */
 
-import type { DatabaseSync } from "node:sqlite";
+import type { Executor } from "@/lib/db/client";
 import {
   activityRepo,
   auditRepo,
@@ -24,7 +24,7 @@ import type {
 import { newId, nowIso } from "@/lib/domain/ids";
 import { formatMoney } from "@/lib/domain/money";
 
-export function recordActivity(params: {
+export async function recordActivity(params: {
   agreementId: string | null;
   milestoneId?: string | null;
   actorId: string | null;
@@ -33,9 +33,9 @@ export function recordActivity(params: {
   summary: string;
   metadata?: Record<string, unknown>;
   txHash?: string | null;
-  db?: DatabaseSync;
+  db?: Executor;
 }) {
-  return activityRepo.insert(
+  return await activityRepo.insert(
     {
       id: newId("act"),
       agreementId: params.agreementId,
@@ -52,21 +52,21 @@ export function recordActivity(params: {
   );
 }
 
-export function notify(params: {
+export async function notify(params: {
   userId: string;
   kind: NotificationKind;
   title: string;
   body: string;
   href?: string | null;
   agreementId?: string | null;
-  db?: DatabaseSync;
+  db?: Executor;
 }) {
   // Respect the recipient's preferences. An unset preference defaults to on --
   // people should not miss a payment notification because of a missing row.
-  const prefs = notificationsRepo.preferences(params.userId, params.db);
+  const prefs = await notificationsRepo.preferences(params.userId, params.db);
   if (prefs.channels && prefs.channels[params.kind] === false) return null;
 
-  return notificationsRepo.insert(
+  return await notificationsRepo.insert(
     {
       id: newId("ntf"),
       userId: params.userId,
@@ -82,7 +82,7 @@ export function notify(params: {
   );
 }
 
-export function audit(params: {
+export async function audit(params: {
   actorId: string | null;
   action: string;
   entityType: string;
@@ -90,9 +90,9 @@ export function audit(params: {
   before?: Record<string, unknown> | null;
   after?: Record<string, unknown> | null;
   ip?: string | null;
-  db?: DatabaseSync;
+  db?: Executor;
 }) {
-  return auditRepo.insert(
+  return await auditRepo.insert(
     {
       id: newId("aud"),
       actorId: params.actorId,
@@ -113,15 +113,15 @@ export function audit(params: {
  *
  * Forwarding is fire-and-forget: analytics must never be able to fail a payment.
  */
-export function track(params: {
+export async function track(params: {
   name: AnalyticsEventName;
   userId: string | null;
   anonymousId?: string;
   agreementId?: string | null;
   properties?: Record<string, unknown>;
-  db?: DatabaseSync;
+  db?: Executor;
 }) {
-  const event = analyticsRepo.insert(
+  const event = await analyticsRepo.insert(
     {
       id: newId("anl"),
       name: params.name,
@@ -187,10 +187,14 @@ async function forwardToVerseAnalytics(
 // Search indexing
 // ---------------------------------------------------------------------------
 
-export function indexAgreement(agreement: Agreement, milestones: Milestone[], db?: DatabaseSync) {
+export async function indexAgreement(
+  agreement: Agreement,
+  milestones: Milestone[],
+  db?: Executor,
+): Promise<void> {
   const owners = [agreement.clientId, agreement.providerId].filter((v): v is string => Boolean(v));
 
-  searchRepo.upsert(
+  await searchRepo.upsert(
     {
       entityType: "agreement",
       entityId: agreement.id,
@@ -211,7 +215,7 @@ export function indexAgreement(agreement: Agreement, milestones: Milestone[], db
   );
 
   for (const milestone of milestones) {
-    searchRepo.upsert(
+    await searchRepo.upsert(
       {
         entityType: "milestone",
         entityId: milestone.id,
@@ -227,13 +231,13 @@ export function indexAgreement(agreement: Agreement, milestones: Milestone[], db
   }
 }
 
-export function indexPayment(
+export async function indexPayment(
   payment: { id: string; txHash: string | null; amount: number; asset: string; agreementId: string },
   ownerIds: string[],
   agreementTitle: string,
-  db?: DatabaseSync,
+  db?: Executor,
 ) {
-  searchRepo.upsert(
+  await searchRepo.upsert(
     {
       entityType: "payment",
       entityId: payment.id,
@@ -248,11 +252,11 @@ export function indexPayment(
   );
 }
 
-export function indexPublicProfile(
+export async function indexPublicProfile(
   user: { id: string; handle: string; displayName: string; headline: string },
-  db?: DatabaseSync,
+  db?: Executor,
 ) {
-  searchRepo.upsert(
+  await searchRepo.upsert(
     {
       entityType: "user",
       entityId: user.id,

@@ -132,15 +132,21 @@ prepared, it is rejected rather than accepted against different terms.
 Migration `0002_audit_immutability` makes append-only a **database guarantee**:
 
 ```sql
-CREATE TRIGGER payments_no_delete BEFORE DELETE ON payments
-BEGIN SELECT RAISE(ABORT, 'payments are immutable once recorded'); END;
+CREATE FUNCTION vf_reject_confirmed_payment_change() RETURNS trigger AS $$
+BEGIN
+  IF OLD.status = 'confirmed' AND (
+       NEW.amount <> OLD.amount
+       OR NEW.recipient_address <> OLD.recipient_address
+       OR COALESCE(NEW.tx_hash, '') <> COALESCE(OLD.tx_hash, '')
+     ) THEN
+    RAISE EXCEPTION 'confirmed payments cannot be altered';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER payments_confirmed_immutable BEFORE UPDATE ON payments
-WHEN OLD.status = 'confirmed'
-  AND (NEW.amount <> OLD.amount
-    OR NEW.recipient_address <> OLD.recipient_address
-    OR IFNULL(NEW.tx_hash,'') <> IFNULL(OLD.tx_hash,''))
-BEGIN SELECT RAISE(ABORT, 'confirmed payments cannot be altered'); END;
+  FOR EACH ROW EXECUTE FUNCTION vf_reject_confirmed_payment_change();
 ```
 
 Plus `activity_events` (no update) and `audit_log` (no update, no delete). No service and
@@ -211,6 +217,7 @@ Stated plainly rather than left for someone to discover:
 - **The demo personas use a marker signature.** That path is gated on simulated mode and
   named `simulated_signature` in the stored record, so it can never be mistaken for a real
   signature check. In live mode every signature is cryptographically verified.
-- **SQLite suits a single-node deployment.** The repository layer is the only code that
-  knows SQL, so moving to Postgres is contained — but it has not been done.
+- **The demo seed is public data by design.** A deployed demo lets anyone sign in as a
+  seeded persona and move simulated funds. That is the point of a buildathon demo, but it
+  is not an access-control model for real money.
 - **The contract has not been through a third-party audit.**

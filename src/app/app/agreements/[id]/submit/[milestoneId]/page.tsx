@@ -16,7 +16,7 @@ export default async function SubmitPage({
 }: { params: Promise<{ id: string; milestoneId: string }> }) {
   const { id, milestoneId } = await params;
   const auth = await requireAuth();
-  const bundle = loadBundle(id);
+  const bundle = await loadBundle(id);
 
   if (!bundle) notFound();
   const role = roleOn(bundle.agreement, auth.user.id);
@@ -26,10 +26,10 @@ export default async function SubmitPage({
   // than shown a form they cannot use.
   if (role !== "provider") redirect(`/app/agreements/${id}`);
 
-  const milestone = milestonesRepo.byId(milestoneId);
+  const milestone = await milestonesRepo.byId(milestoneId);
   if (!milestone || milestone.agreementId !== bundle.agreement.id) notFound();
 
-  const detail = loadMilestoneDetail(milestone);
+  const detail = await loadMilestoneDetail(milestone);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">

@@ -19,7 +19,7 @@ export const POST = route(
     const body = await parseBody(request, schema);
     const auth = await signIn(body);
 
-    track({
+    await track({
       name: "wallet_connected",
       userId: auth.user.id,
       properties: { address: auth.address, isNewUser: auth.user.displayName.startsWith("Wallet ") },
@@ -34,7 +34,7 @@ export const POST = route(
         isAdmin: auth.user.isAdmin,
       },
       address: auth.address,
-      wallets: walletsRepo.forUser(auth.user.id),
+      wallets: await walletsRepo.forUser(auth.user.id),
     };
   },
 );

@@ -102,7 +102,7 @@ export async function prepareFunding(params: {
     throw new AppError("VALIDATION_FAILED", "The provider has no wallet address on file.");
   }
 
-  const claim = idempotencyRepo.claim(params.idempotencyKey, "escrow.fund", params.actor.id);
+  const claim = await idempotencyRepo.claim(params.idempotencyKey, "escrow.fund", params.actor.id);
   if (claim.status === "duplicate") {
     return claim.response as FundingIntent;
   }
@@ -136,7 +136,7 @@ export async function prepareFunding(params: {
       transaction: prepared,
     };
 
-    agreementsRepo.update({
+    await agreementsRepo.update({
       ...agreement,
       onChainId,
       agreementHash: termsHash,
@@ -145,10 +145,10 @@ export async function prepareFunding(params: {
       isSimulated: adapter.mode === "simulated",
     });
 
-    idempotencyRepo.complete(params.idempotencyKey, intent);
+    await idempotencyRepo.complete(params.idempotencyKey, intent);
     return intent;
   } catch (error) {
-    idempotencyRepo.release(params.idempotencyKey);
+    await idempotencyRepo.release(params.idempotencyKey);
     throw toAppError(error);
   }
 }
@@ -204,10 +204,10 @@ export async function confirmFunding(params: {
     }
   }
 
-  return transaction(() => {
+  return await transaction(async () => {
     assertAgreementTransition(agreement.status, "funded", "system", "confirm funding");
 
-    let saved = agreementsRepo.update({
+    let saved = await agreementsRepo.update({
       ...agreement,
       status: "funded",
       fundingTxHash: params.txHash,
@@ -216,15 +216,15 @@ export async function confirmFunding(params: {
 
     // Activate the first milestone and move straight into progress -- an agreement
     // that is funded but has no active work is a dead end for the provider.
-    const milestones = milestonesRepo.forAgreement(saved.id);
+    const milestones = await milestonesRepo.forAgreement(saved.id);
     const first = milestones.find((m) => m.status === "locked");
     if (first) {
       assertMilestoneTransition(first.status, "in_progress", "system", "activate");
-      milestonesRepo.update({ ...first, status: "in_progress" });
+      await milestonesRepo.update({ ...first, status: "in_progress" });
     }
 
     assertAgreementTransition(saved.status, "in_progress", "system", "start work");
-    saved = agreementsRepo.update({ ...saved, status: "in_progress" });
+    saved = await agreementsRepo.update({ ...saved, status: "in_progress" });
 
     recordActivity({
       agreementId: saved.id,
@@ -297,10 +297,9 @@ export interface ReleaseResult {
  * Remaining releasable amount for a milestone, derived from confirmed payments.
  * The ledger is authoritative; `milestone.releasedAmount` is a cached projection.
  */
-export function remainingFor(milestone: Milestone): number {
-  const confirmed = paymentsRepo.confirmedTotalForMilestone(milestone.id);
-  const pending = paymentsRepo
-    .forMilestone(milestone.id)
+export async function remainingFor(milestone: Milestone): Promise<number> {
+  const confirmed = await paymentsRepo.confirmedTotalForMilestone(milestone.id);
+  const pending = (await paymentsRepo.forMilestone(milestone.id))
     .filter((p) => p.status === "pending" || p.status === "submitted")
     .reduce((a, p) => a + p.amount, 0);
   return Math.max(0, milestone.amount - confirmed - pending);
@@ -333,7 +332,7 @@ export async function releaseMilestone(params: {
   // retry after a dropped response safe: the second attempt must not be
   // re-validated against a balance the first attempt already spent, and must not
   // report "already paid out" for a payment the caller never saw succeed.
-  const claim = idempotencyRepo.claim(params.idempotencyKey, "escrow.release", params.actor.id);
+  const claim = await idempotencyRepo.claim(params.idempotencyKey, "escrow.release", params.actor.id);
   if (claim.status === "duplicate") return claim.response as ReleaseResult;
   if (claim.status === "in_flight") {
     throw new AppError("DUPLICATE_REQUEST", "This release is already being processed.");
@@ -341,7 +340,7 @@ export async function releaseMilestone(params: {
 
   const adapter = getSettlementAdapter();
   const clientAddress =
-    params.bundle.clientAddress ?? walletsRepo.primaryAddress(agreement.clientId) ?? "";
+    params.bundle.clientAddress ?? await walletsRepo.primaryAddress(agreement.clientId) ?? "";
 
   try {
     // --- State. Milestone-level checks run before agreement-level ones because
@@ -364,7 +363,7 @@ export async function releaseMilestone(params: {
     }
 
     // --- Amount, computed from the confirmed ledger plus anything already in flight.
-    const remaining = remainingFor(milestone);
+    const remaining = await remainingFor(milestone);
     if (params.amount <= 0) {
       throw new AppError("VALIDATION_FAILED", "Enter an amount greater than zero.");
     }
@@ -394,10 +393,10 @@ export async function releaseMilestone(params: {
 
     const isFull = params.amount >= remaining;
 
-    const result = transaction(() => {
+    const result = await transaction(async () => {
       // Record the payment as pending. It becomes confirmed only when the
       // settlement layer says so.
-      const payment = paymentsRepo.insert({
+      const payment = await paymentsRepo.insert({
         id: newId("pay"),
         agreementId: agreement.id,
         milestoneId: milestone.id,
@@ -426,7 +425,7 @@ export async function releaseMilestone(params: {
         isFull ? "approve" : "approve_partial",
       );
 
-      const savedMilestone = milestonesRepo.update({
+      const savedMilestone = await milestonesRepo.update({
         ...milestone,
         status: nextStatus,
         approvedAt: nowIso(),
@@ -458,10 +457,10 @@ export async function releaseMilestone(params: {
       return { payment, milestone: savedMilestone, agreement, transaction: prepared };
     });
 
-    idempotencyRepo.complete(params.idempotencyKey, result);
+    await idempotencyRepo.complete(params.idempotencyKey, result);
     return result;
   } catch (error) {
-    idempotencyRepo.release(params.idempotencyKey);
+    await idempotencyRepo.release(params.idempotencyKey);
     throw toAppError(error);
   }
 }
@@ -490,13 +489,13 @@ export async function confirmRelease(params: {
   }
 
   if (receipt.status === "failed") {
-    const failed = paymentsRepo.update({
+    const failed = await paymentsRepo.update({
       ...params.payment,
       status: "failed",
       failureReason: receipt.reason ?? "The transaction did not complete.",
     });
 
-    const milestone = milestonesRepo.byId(params.payment.milestoneId ?? "");
+    const milestone = await milestonesRepo.byId(params.payment.milestoneId ?? "");
     if (milestone) {
       recordActivity({
         agreementId: params.payment.agreementId,
@@ -514,22 +513,22 @@ export async function confirmRelease(params: {
   }
 
   // Confirmed on chain. Now, and only now, credit the milestone.
-  return transaction(() => {
-    const confirmed = paymentsRepo.update({
+  return await transaction(async () => {
+    const confirmed = await paymentsRepo.update({
       ...params.payment,
       status: "confirmed",
       blockNumber: receipt.blockNumber,
       confirmedAt: nowIso(),
     });
 
-    const milestone = milestonesRepo.byId(confirmed.milestoneId ?? "");
-    const agreement = agreementsRepo.byId(confirmed.agreementId);
+    const milestone = await milestonesRepo.byId(confirmed.milestoneId ?? "");
+    const agreement = await agreementsRepo.byId(confirmed.agreementId);
     if (!milestone || !agreement) return { status: "confirmed" as const, payment: confirmed };
 
-    const totalConfirmed = paymentsRepo.confirmedTotalForMilestone(milestone.id);
+    const totalConfirmed = await paymentsRepo.confirmedTotalForMilestone(milestone.id);
     const fullyPaid = totalConfirmed >= milestone.amount;
 
-    let savedMilestone = milestonesRepo.update({
+    let savedMilestone = await milestonesRepo.update({
       ...milestone,
       releasedAmount: totalConfirmed,
       ...(fullyPaid ? { status: "released" as const, releasedAt: nowIso() } : {}),
@@ -539,11 +538,11 @@ export async function confirmRelease(params: {
       assertMilestoneTransition(milestone.status, "released", "system", "release");
 
       // Activate the next milestone so the provider always has a live next step.
-      const all = milestonesRepo.forAgreement(agreement.id);
+      const all = await milestonesRepo.forAgreement(agreement.id);
       const next = all.find((m) => m.status === "locked");
       if (next) {
         assertMilestoneTransition(next.status, "in_progress", "system", "activate");
-        milestonesRepo.update({ ...next, status: "in_progress" });
+        await milestonesRepo.update({ ...next, status: "in_progress" });
         recordActivity({
           agreementId: agreement.id,
           milestoneId: next.id,
@@ -591,11 +590,11 @@ export async function confirmRelease(params: {
     indexPayment(confirmed, [agreement.clientId, agreement.providerId ?? ""].filter(Boolean), agreement.title);
 
     // If every milestone has settled, the agreement is complete.
-    const refreshed = milestonesRepo.forAgreement(agreement.id);
+    const refreshed = await milestonesRepo.forAgreement(agreement.id);
     const allSettled = refreshed.every((m) => m.status === "released" || m.status === "cancelled");
     if (allSettled && agreement.status === "in_progress") {
       assertAgreementTransition(agreement.status, "completed", "system", "complete");
-      const completed = agreementsRepo.update({
+      const completed = await agreementsRepo.update({
         ...agreement,
         status: "completed",
         completedAt: nowIso(),
@@ -629,9 +628,9 @@ export async function confirmRelease(params: {
 // Review window
 // ---------------------------------------------------------------------------
 
-export function openReviewWindow(milestone: Milestone, agreement: Agreement): Milestone {
+export async function openReviewWindow(milestone: Milestone, agreement: Agreement): Promise<Milestone> {
   assertMilestoneTransition(milestone.status, "under_review", "system", "open review");
-  return milestonesRepo.update({
+  return await milestonesRepo.update({
     ...milestone,
     status: "under_review",
     reviewDueAt: addHours(nowIso(), agreement.rules.approvalWindowHours),
@@ -652,11 +651,10 @@ export async function reconcile(agreementId: string): Promise<{
   onChainTotal: number | null;
   ledgerTotal: number;
 }> {
-  const agreement = agreementsRepo.byId(agreementId);
+  const agreement = await agreementsRepo.byId(agreementId);
   if (!agreement) throw errors.notFound("Agreement");
 
-  const ledgerTotal = paymentsRepo
-    .forAgreement(agreementId)
+  const ledgerTotal = (await paymentsRepo.forAgreement(agreementId))
     .filter((p) => p.status === "confirmed")
     .reduce((a, p) => a + p.amount, 0);
 

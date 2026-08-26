@@ -15,9 +15,9 @@ export const metadata: Metadata = { title: "Reputation" };
 
 export default async function ReputationPage() {
   const auth = await requireAuth();
-  const reputation = computeReputation(auth.user.id);
-  const candidates = showcaseCandidates(auth.user.id);
-  const showcase = showcaseRepo.forUser(auth.user.id);
+  const reputation = await computeReputation(auth.user.id);
+  const candidates = await showcaseCandidates(auth.user.id);
+  const showcase = await showcaseRepo.forUser(auth.user.id);
 
   const hasHistory = reputation.contractsCompleted > 0 || reputation.milestonesCompleted > 0;
 

@@ -14,7 +14,7 @@ import { formatMoney } from "../src/lib/domain/money";
 async function main() {
   const force = process.argv.includes("--force");
 
-  if (isSeeded() && !force) {
+  if ((await isSeeded()) && !force) {
     console.log("Demo data is already present. Use `npm run db:reset` to rebuild it.");
     closeDb();
     return;
@@ -22,14 +22,14 @@ async function main() {
 
   if (force) {
     console.log("Clearing existing data...");
-    clearAllData();
+    await clearAllData();
   }
 
   console.log("Seeding demo data...");
   const result = await seedDemoData();
 
-  const reputation = computeReputation(result.alexId);
-  const metrics = computeProductMetrics();
+  const reputation = await computeReputation(result.alexId);
+  const metrics = await computeProductMetrics();
 
   console.log("");
   console.log("Seeded successfully.");
@@ -55,7 +55,7 @@ async function main() {
   console.log("    http://localhost:3000/api/demo/start?persona=operator   (Operations)");
   console.log("");
 
-  closeDb();
+  await closeDb();
 }
 
 main().catch((error) => {

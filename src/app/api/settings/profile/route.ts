@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const PATCH = route({ auth: true }, async ({ request, auth, ip }) => {
   const body = await parseBody(request, profileUpdateSchema);
 
-  usersRepo.updateProfile(auth.user.id, {
+  await usersRepo.updateProfile(auth.user.id, {
     displayName: body.displayName,
     headline: body.headline,
     bio: body.bio,
@@ -16,10 +16,10 @@ export const PATCH = route({ auth: true }, async ({ request, auth, ip }) => {
     timezone: body.timezone,
   });
 
-  const updated = usersRepo.byId(auth.user.id)!;
-  if (updated.publicProfileEnabled) indexPublicProfile(updated);
+  const updated = (await usersRepo.byId(auth.user.id))!;
+  if (updated.publicProfileEnabled) await indexPublicProfile(updated);
 
-  audit({
+  await audit({
     actorId: auth.user.id,
     action: "settings.profile",
     entityType: "user",

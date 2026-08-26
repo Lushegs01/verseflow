@@ -52,11 +52,11 @@ export interface ProductMetrics {
   asset: string;
 }
 
-export function computeProductMetrics(): ProductMetrics {
-  const agreements = agreementsRepo.all();
-  const users = usersRepo.all();
-  const payments = paymentsRepo.all();
-  const disputes = disputesRepo.all();
+export async function computeProductMetrics(): Promise<ProductMetrics> {
+  const agreements = await agreementsRepo.all();
+  const users = await usersRepo.all();
+  const payments = await paymentsRepo.all();
+  const disputes = await disputesRepo.all();
 
   const signed = agreements.filter((a) =>
     ["awaiting_funding", "funded", "in_progress", "completed", "disputed", "paused"].includes(a.status),
@@ -83,7 +83,7 @@ export function computeProductMetrics(): ProductMetrics {
   }
   const repeatUsers = Array.from(perUser.values()).filter((c) => c > 1).length;
 
-  const allMilestones = milestonesRepo.all();
+  const allMilestones = await milestonesRepo.all();
   const releasedMilestones = allMilestones.filter((m) => m.status === "released");
   const reviewedMilestones = allMilestones.filter((m) =>
     ["released", "approved", "partially_approved", "revision_requested", "disputed"].includes(m.status),
@@ -172,7 +172,7 @@ export function computeProductMetrics(): ProductMetrics {
         ? Math.round(agreements.reduce((a, x) => a + x.totalAmount, 0) / agreements.length)
         : 0,
     funnel,
-    eventCounts: analyticsRepo.countByName(),
+    eventCounts: await analyticsRepo.countByName(),
     volumeByWeek: buildWeeklyVolume(funded, confirmedPayments),
     asset: agreements[0]?.asset ?? "USDC",
   };
@@ -235,8 +235,8 @@ export interface DashboardSummary {
   asset: string;
 }
 
-export function computeDashboardSummary(userId: string): DashboardSummary {
-  const agreements = agreementsRepo.forUser(userId);
+export async function computeDashboardSummary(userId: string): Promise<DashboardSummary> {
+  const agreements = await agreementsRepo.forUser(userId);
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
@@ -249,7 +249,7 @@ export function computeDashboardSummary(userId: string): DashboardSummary {
 
   for (const agreement of agreements) {
     const isClient = agreement.clientId === userId;
-    const milestones = milestonesRepo.forAgreement(agreement.id);
+    const milestones = await milestonesRepo.forAgreement(agreement.id);
     const released = milestones.reduce((a, m) => a + m.releasedAmount, 0);
 
     if (["funded", "in_progress", "disputed", "paused"].includes(agreement.status)) {
@@ -318,13 +318,13 @@ export interface ActionItem {
   dueAt: string | null;
 }
 
-export function buildActionQueue(userId: string): ActionItem[] {
+export async function buildActionQueue(userId: string): Promise<ActionItem[]> {
   const items: ActionItem[] = [];
   const now = Date.now();
 
-  for (const agreement of agreementsRepo.forUser(userId)) {
+  for (const agreement of await agreementsRepo.forUser(userId)) {
     const isClient = agreement.clientId === userId;
-    const milestones = milestonesRepo.forAgreement(agreement.id);
+    const milestones = await milestonesRepo.forAgreement(agreement.id);
 
     if (agreement.status === "awaiting_signature") {
       const mine = isClient ? agreement.clientSignature : agreement.providerSignature;
@@ -410,7 +410,7 @@ export function buildActionQueue(userId: string): ActionItem[] {
       }
 
       if (milestone.status === "disputed") {
-        const dispute = disputesRepo.forMilestone(milestone.id);
+        const dispute = await disputesRepo.forMilestone(milestone.id);
         items.push({
           kind: "resolve_dispute",
           agreementId: agreement.id,

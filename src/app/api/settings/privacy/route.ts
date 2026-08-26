@@ -12,13 +12,13 @@ export const runtime = "nodejs";
 export const PATCH = route({ auth: true }, async ({ request, auth, ip }) => {
   const body = await parseBody(request, privacyUpdateSchema);
 
-  usersRepo.updatePrivacy(auth.user.id, body.publicProfileEnabled, body.publicMetrics);
-  const updated = usersRepo.byId(auth.user.id)!;
+  await usersRepo.updatePrivacy(auth.user.id, body.publicProfileEnabled, body.publicMetrics);
+  const updated = (await usersRepo.byId(auth.user.id))!;
 
-  if (updated.publicProfileEnabled) indexPublicProfile(updated);
-  else searchRepo.remove("user", updated.id);
+  if (updated.publicProfileEnabled) await indexPublicProfile(updated);
+  else await searchRepo.remove("user", updated.id);
 
-  audit({
+  await audit({
     actorId: auth.user.id,
     action: "settings.privacy",
     entityType: "user",

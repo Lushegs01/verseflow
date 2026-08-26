@@ -15,7 +15,7 @@ export async function generateMetadata({
   params,
 }: { params: Promise<{ handle: string }> }): Promise<Metadata> {
   const { handle } = await params;
-  const profile = buildPublicProfile(handle);
+  const profile = await buildPublicProfile(handle);
   if (!profile) return { title: "Profile not found", robots: { index: false } };
 
   return {
@@ -35,7 +35,7 @@ export default async function PublicProfilePage({
   params,
 }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
-  const profile = buildPublicProfile(handle);
+  const profile = await buildPublicProfile(handle);
 
   // A profile that has not opted in is a 404, not a "this user is private" page.
   // The absence of a public profile is itself private information.

@@ -18,8 +18,7 @@ Built for the **Verse Buildathon — Payments & Merchant Solutions**.
 
 ## Run it
 
-Requires **Node 22.5+** (for the built-in `node:sqlite`). Nothing else — no database
-server, no API keys, no wallet.
+Requires **Node 20+**. Nothing else — no database server, no API keys, no wallet.
 
 ```bash
 npm install && npm run db:reset && npm run dev
@@ -95,8 +94,8 @@ src/
     app/                    Application components
     marketing/              Landing page
   lib/
-    domain/                 Types, state machine, money, hashing, validation  ← no I/O
-    db/                     SQLite, migrations, repositories                  ← only place with SQL
+    domain/                 Types, state machine, money, hashing, permissions ← no I/O
+    db/                     Postgres, migrations, repositories                ← only place with SQL
     services/               Business logic (agreements, escrow, milestones, disputes…)
     chain/                  SettlementAdapter + simulated + live EVM adapters
     ai/                     Agreement engine + evidence analyzer
@@ -113,8 +112,8 @@ minor units — floating point is never used for money. The state machine
 who may perform them, so validity and authorization are checked together rather than in
 two places that can drift apart.
 
-**`lib/db`** is the only code that knows SQL. Swapping SQLite for Postgres means
-reimplementing that directory and nothing else.
+**`lib/db`** is the only code that knows SQL, and the only place that knows which
+driver is in use.
 
 **`lib/chain`** exposes a single `SettlementAdapter` interface. Services depend on it and
 never on viem, an RPC client, or a wallet object — which is what makes the local

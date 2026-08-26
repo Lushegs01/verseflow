@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 /** Agreements the signed-in user is a party to. */
 export const GET = route({ auth: true }, async ({ auth }) => {
-  const bundles = listForUser(auth.user.id);
+  const bundles = await listForUser(auth.user.id);
 
   return {
     agreements: bundles.map((bundle) => ({
@@ -44,7 +44,7 @@ export const POST = route(
   async ({ request, auth, ip }) => {
     const { draft, role } = await parseBody(request, createSchema);
 
-    const bundle = createAgreement({
+    const bundle = await createAgreement({
       input: draft,
       creator: auth.user,
       creatorRole: role,

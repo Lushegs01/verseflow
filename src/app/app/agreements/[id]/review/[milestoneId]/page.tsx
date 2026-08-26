@@ -18,7 +18,7 @@ export default async function ReviewPage({
 }: { params: Promise<{ id: string; milestoneId: string }> }) {
   const { id, milestoneId } = await params;
   const auth = await requireAuth();
-  const bundle = loadBundle(id);
+  const bundle = await loadBundle(id);
 
   if (!bundle) notFound();
   const role = roleOn(bundle.agreement, auth.user.id);
@@ -28,10 +28,10 @@ export default async function ReviewPage({
   // and the route reflects that rather than only the API.
   if (role !== "client") redirect(`/app/agreements/${id}`);
 
-  const milestone = milestonesRepo.byId(milestoneId);
+  const milestone = await milestonesRepo.byId(milestoneId);
   if (!milestone || milestone.agreementId !== bundle.agreement.id) notFound();
 
-  const detail = loadMilestoneDetail(milestone);
+  const detail = await loadMilestoneDetail(milestone);
   const chain = publicChainInfo();
 
   return (
@@ -51,7 +51,7 @@ export default async function ReviewPage({
         analysis={detail.analysis}
         revisions={detail.revisions}
         asset={bundle.agreement.asset}
-        remaining={remainingFor(milestone)}
+        remaining={await remainingFor(milestone)}
         rules={bundle.agreement.rules}
         providerName={bundle.provider?.displayName ?? "the provider"}
         chain={chain}

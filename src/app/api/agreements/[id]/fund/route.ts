@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const POST = route<{ id: string }>(
   { auth: true, rateLimit: { limit: 15, windowSeconds: 60, scope: "escrow.fund" } },
   async ({ params, request, auth }) => {
-    const bundle = loadBundle(params.id);
+    const bundle = await loadBundle(params.id);
     if (!bundle) throw errors.notFound("Agreement");
     requireRole(bundle.agreement, auth.user, "client");
 

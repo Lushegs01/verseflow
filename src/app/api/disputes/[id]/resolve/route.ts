@@ -15,10 +15,10 @@ export const runtime = "nodejs";
 export const POST = route<{ id: string }>(
   { auth: true, rateLimit: { limit: 20, windowSeconds: 300, scope: "dispute.resolve" } },
   async ({ params, request, auth, ip }) => {
-    const dispute = disputesRepo.byId(params.id);
+    const dispute = await disputesRepo.byId(params.id);
     if (!dispute) throw errors.notFound("Dispute");
 
-    const bundle = loadBundle(dispute.agreementId);
+    const bundle = await loadBundle(dispute.agreementId);
     if (!bundle) throw errors.notFound("Agreement");
     if (!auth.user.isAdmin) requireParty(bundle.agreement, auth.user);
 

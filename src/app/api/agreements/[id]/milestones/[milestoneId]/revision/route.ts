@@ -13,17 +13,17 @@ type Params = { id: string; milestoneId: string };
 export const POST = route<Params>(
   { auth: true, rateLimit: { limit: 30, windowSeconds: 60, scope: "milestone.revision" } },
   async ({ params, request, auth, ip }) => {
-    const bundle = loadBundle(params.id);
+    const bundle = await loadBundle(params.id);
     if (!bundle) throw errors.notFound("Agreement");
     requireRole(bundle.agreement, auth.user, "client");
 
-    const milestone = milestonesRepo.byId(params.milestoneId);
+    const milestone = await milestonesRepo.byId(params.milestoneId);
     if (!milestone || milestone.agreementId !== bundle.agreement.id) {
       throw errors.notFound("Milestone");
     }
 
     const input = await parseBody(request, revisionRequestSchema);
-    const result = requestRevision({ bundle, milestone, actor: auth.user, input, ip });
+    const result = await requestRevision({ bundle, milestone, actor: auth.user, input, ip });
 
     return result;
   },

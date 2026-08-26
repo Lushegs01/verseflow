@@ -13,12 +13,12 @@ type Params = { id: string; milestoneId: string };
 export const POST = route<Params>(
   { auth: true, rateLimit: { limit: 30, windowSeconds: 300, scope: "milestone.submit" } },
   async ({ params, request, auth, ip }) => {
-    const bundle = loadBundle(params.id);
+    const bundle = await loadBundle(params.id);
     if (!bundle) throw errors.notFound("Agreement");
     requireRole(bundle.agreement, auth.user, "provider");
     assertNotSelfDealing(bundle.agreement, auth.user, "submit");
 
-    const milestone = milestonesRepo.byId(params.milestoneId);
+    const milestone = await milestonesRepo.byId(params.milestoneId);
     if (!milestone || milestone.agreementId !== bundle.agreement.id) {
       throw errors.notFound("Milestone");
     }

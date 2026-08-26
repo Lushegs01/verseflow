@@ -27,13 +27,13 @@ import { SimulatedVerseAdapter } from "@/lib/chain/simulated-adapter";
 import type { AgreementBundle } from "./agreements";
 import { recordActivity, notify, audit, track } from "./activity";
 
-export function openDispute(params: {
+export async function openDispute(params: {
   bundle: AgreementBundle;
   milestone: Milestone;
   actor: User;
   input: unknown;
   ip?: string | null;
-}): Dispute {
+}): Promise<Dispute> {
   const { agreement } = params.bundle;
   const milestone = params.milestone;
 
@@ -47,7 +47,7 @@ export function openDispute(params: {
     });
   }
 
-  const existing = disputesRepo.forMilestone(milestone.id);
+  const existing = await disputesRepo.forMilestone(milestone.id);
   if (existing && existing.status !== "resolved" && existing.status !== "withdrawn") {
     throw new AppError("CONFLICT", "A dispute is already open on this milestone.");
   }
@@ -55,13 +55,13 @@ export function openDispute(params: {
   const role = agreement.clientId === params.actor.id ? "client" : "provider";
   const input = parsed.data;
 
-  return transaction(() => {
+  return await transaction(async () => {
     assertMilestoneTransition(milestone.status, "disputed", role, "open dispute");
-    milestonesRepo.update({ ...milestone, status: "disputed" });
+    await milestonesRepo.update({ ...milestone, status: "disputed" });
 
     if (agreement.status !== "disputed") {
       assertAgreementTransition(agreement.status, "disputed", role, "open dispute");
-      agreementsRepo.update({ ...agreement, status: "disputed" });
+      await agreementsRepo.update({ ...agreement, status: "disputed" });
     }
 
     // Freeze the escrow so nothing can be released while this is open.
@@ -70,7 +70,7 @@ export function openDispute(params: {
       adapter.flagDispute(agreement.onChainId);
     }
 
-    const dispute = disputesRepo.insert({
+    const dispute = await disputesRepo.insert({
       id: newId("dsp"),
       agreementId: agreement.id,
       milestoneId: milestone.id,
@@ -128,7 +128,7 @@ export function openDispute(params: {
   });
 }
 
-export function addMessage(params: {
+export async function addMessage(params: {
   dispute: Dispute;
   actor: User;
   body: string;
@@ -144,7 +144,7 @@ export function addMessage(params: {
     throw new AppError("VALIDATION_FAILED", "Write a message before sending.");
   }
 
-  const message = disputesRepo.addMessage({
+  const message = await disputesRepo.addMessage({
     id: newId("msg"),
     disputeId: params.dispute.id,
     authorId: params.actor.id,
@@ -153,7 +153,7 @@ export function addMessage(params: {
   });
 
   if (params.dispute.status === "open") {
-    disputesRepo.update({ ...params.dispute, status: "negotiating" });
+    await disputesRepo.update({ ...params.dispute, status: "negotiating" });
   }
 
   recordActivity({
@@ -217,10 +217,10 @@ export async function resolveDispute(params: {
     throw errors.forbidden("Only the client or an operator can authorize a settlement amount.");
   }
 
-  const milestone = milestonesRepo.byId(params.dispute.milestoneId);
+  const milestone = await milestonesRepo.byId(params.dispute.milestoneId);
   if (!milestone) throw errors.notFound("Milestone");
 
-  const alreadyReleased = paymentsRepo.confirmedTotalForMilestone(milestone.id);
+  const alreadyReleased = await paymentsRepo.confirmedTotalForMilestone(milestone.id);
   const remaining = Math.max(0, milestone.amount - alreadyReleased);
 
   let providerAmount = 0;
@@ -245,7 +245,7 @@ export async function resolveDispute(params: {
     );
   }
 
-  const claim = idempotencyRepo.claim(input.idempotencyKey, "dispute.resolve", params.actor.id);
+  const claim = await idempotencyRepo.claim(input.idempotencyKey, "dispute.resolve", params.actor.id);
   if (claim.status === "duplicate") {
     return claim.response as { dispute: Dispute; milestone: Milestone };
   }
@@ -269,8 +269,8 @@ export async function resolveDispute(params: {
       txHash = prepared.simulatedReceipt?.txHash ?? null;
     }
 
-    const result = transaction(() => {
-      const resolvedDispute = disputesRepo.update({
+    const result = await transaction(async () => {
+      const resolvedDispute = await disputesRepo.update({
         ...params.dispute,
         status: input.resolution === "withdrawn" ? "withdrawn" : "resolved",
         resolution: input.resolution,
@@ -281,7 +281,7 @@ export async function resolveDispute(params: {
       });
 
       if (providerAmount > 0 && params.bundle.providerAddress) {
-        paymentsRepo.insert({
+        await paymentsRepo.insert({
           id: newId("pay"),
           agreementId: agreement.id,
           milestoneId: milestone.id,
@@ -323,11 +323,11 @@ export async function resolveDispute(params: {
         isAdmin ? "admin" : isClient ? "client" : "provider",
         "resolve dispute",
       );
-      const savedMilestone = milestonesRepo.update({ ...milestone, status: nextStatus });
+      const savedMilestone = await milestonesRepo.update({ ...milestone, status: nextStatus });
 
-      const openElsewhere = disputesRepo
-        .forAgreement(agreement.id)
-        .some((d) => d.id !== resolvedDispute.id && (d.status === "open" || d.status === "negotiating"));
+      const openElsewhere = (await disputesRepo.forAgreement(agreement.id)).some(
+        (d) => d.id !== resolvedDispute.id && (d.status === "open" || d.status === "negotiating"),
+      );
 
       if (!openElsewhere && agreement.status === "disputed") {
         // Unfreezing the agreement is a consequence of the milestone resolving,
@@ -338,7 +338,7 @@ export async function resolveDispute(params: {
           isAdmin ? "admin" : "system",
           "resolve dispute",
         );
-        agreementsRepo.update({ ...agreement, status: "in_progress" });
+        await agreementsRepo.update({ ...agreement, status: "in_progress" });
       }
 
       recordActivity({
@@ -401,16 +401,16 @@ export async function resolveDispute(params: {
       return { dispute: resolvedDispute, milestone: savedMilestone };
     });
 
-    idempotencyRepo.complete(input.idempotencyKey, result);
+    await idempotencyRepo.complete(input.idempotencyKey, result);
     return result;
   } catch (error) {
-    idempotencyRepo.release(input.idempotencyKey);
+    await idempotencyRepo.release(input.idempotencyKey);
     throw error;
   }
 }
 
-export function loadDisputeDetail(disputeId: string) {
-  const dispute = disputesRepo.byId(disputeId);
+export async function loadDisputeDetail(disputeId: string) {
+  const dispute = await disputesRepo.byId(disputeId);
   if (!dispute) return null;
-  return { dispute, messages: disputesRepo.messages(disputeId) };
+  return { dispute, messages: await disputesRepo.messages(disputeId) };
 }

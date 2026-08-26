@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    clearAllData();
+    await clearAllData();
     await seedDemoData();
 
     // The old session pointed at users that no longer exist.

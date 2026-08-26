@@ -10,9 +10,9 @@ export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const auth = await requireAuth();
-  const wallets = walletsRepo.forUser(auth.user.id);
-  const preferences = notificationsRepo.preferences(auth.user.id);
-  const reputation = computeReputation(auth.user.id);
+  const wallets = await walletsRepo.forUser(auth.user.id);
+  const preferences = await notificationsRepo.preferences(auth.user.id);
+  const reputation = await computeReputation(auth.user.id);
   const chain = publicChainInfo();
 
   return (

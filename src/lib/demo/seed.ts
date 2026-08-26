@@ -15,6 +15,7 @@
  */
 
 import { getDb, transaction } from "@/lib/db/client";
+import { IMMUTABILITY_TRIGGERS, TABLES_IN_DEPENDENCY_ORDER } from "@/lib/db/migrations";
 import {
   usersRepo, walletsRepo, agreementsRepo, milestonesRepo, evidenceRepo,
   analysisRepo, paymentsRepo, activityRepo, notificationsRepo, disputesRepo,
@@ -90,7 +91,7 @@ interface SeedContext {
   historicalClients: User[];
 }
 
-function makeUser(spec: {
+async function makeUser(spec: {
   handle: string;
   displayName: string;
   headline: string;
@@ -101,8 +102,8 @@ function makeUser(spec: {
   professions: string[];
   publicProfile?: boolean;
   createdDaysAgo: number;
-}): User {
-  const user = usersRepo.create({
+}): Promise<User> {
+  const user = await usersRepo.create({
     id: newId("usr"),
     handle: spec.handle,
     displayName: spec.displayName,
@@ -122,7 +123,7 @@ function makeUser(spec: {
   });
 
   if (spec.address) {
-    walletsRepo.add({
+    await walletsRepo.add({
       userId: user.id,
       address: spec.address,
       chainId: 20197,
@@ -132,7 +133,7 @@ function makeUser(spec: {
     });
   } else {
     // Historical counterparties still need an address for escrow to be coherent.
-    walletsRepo.add({
+    await walletsRepo.add({
       userId: user.id,
       address: `0x${user.id.slice(4, 8)}${"0".repeat(28)}${user.id.slice(-8)}`.slice(0, 42),
       chainId: 20197,
@@ -142,7 +143,7 @@ function makeUser(spec: {
     });
   }
 
-  notificationsRepo.savePreferences({ userId: user.id, channels: {} as never, digestMode: false });
+  await notificationsRepo.savePreferences({ userId: user.id, channels: {} as never, digestMode: false });
   return user;
 }
 
@@ -169,7 +170,7 @@ function criteria(texts: string[]): AcceptanceCriterion[] {
   }));
 }
 
-function buildAgreement(spec: {
+async function buildAgreement(spec: {
   title: string;
   description: string;
   client: User;
@@ -179,14 +180,14 @@ function buildAgreement(spec: {
   status: Agreement["status"];
   rules?: Partial<AgreementRules>;
   sequence: number;
-}): { agreement: Agreement; milestones: Milestone[] } {
+}): Promise<{ agreement: Agreement; milestones: Milestone[] }> {
   const total = spec.milestones.reduce((a, m) => a + m.amount, 0);
   const createdAt = daysAgo(spec.startedDaysAgo + 3, 9, 12);
   const signedAt = daysAgo(spec.startedDaysAgo + 1, 14, 30);
   const startedAt = daysAgo(spec.startedDaysAgo, 9, 43);
 
-  const clientAddress = walletsRepo.primaryAddress(spec.client.id)!;
-  const providerAddress = walletsRepo.primaryAddress(spec.provider.id)!;
+  const clientAddress = (await walletsRepo.primaryAddress(spec.client.id))!;
+  const providerAddress = (await walletsRepo.primaryAddress(spec.provider.id))!;
   const rules: AgreementRules = { ...DEFAULT_AGREEMENT_RULES, ...spec.rules };
 
   const expectedCompletionAt = new Date(
@@ -272,27 +273,27 @@ function buildAgreement(spec: {
     },
   };
 
-  agreementsRepo.insert(agreement);
-  for (const m of milestones) milestonesRepo.insert(m);
+  await agreementsRepo.insert(agreement);
+  for (const m of milestones) await milestonesRepo.insert(m);
   registerHistoricalTx(fundingTx, between(4_700_000, 4_810_000));
 
-  activity(agreement.id, null, spec.client.id, spec.client.displayName, "agreement_created",
+  await activity(agreement.id, null, spec.client.id, spec.client.displayName, "agreement_created",
     `Created ${agreement.reference}`, createdAt, {});
-  activity(agreement.id, null, spec.client.id, spec.client.displayName, "agreement_signed",
+  await activity(agreement.id, null, spec.client.id, spec.client.displayName, "agreement_signed",
     "Client signed the agreement", signedAt, { termsHash });
-  activity(agreement.id, null, spec.provider.id, spec.provider.displayName, "agreement_signed",
+  await activity(agreement.id, null, spec.provider.id, spec.provider.displayName, "agreement_signed",
     "Provider signed the agreement", new Date(Date.parse(signedAt) + 2 * HOUR).toISOString(), { termsHash });
-  activity(agreement.id, null, null, "System", "agreement_locked",
+  await activity(agreement.id, null, null, "System", "agreement_locked",
     "Both parties signed. Terms are locked.", new Date(Date.parse(signedAt) + 2 * HOUR + 60_000).toISOString(),
     { termsHash, onChainId });
-  activity(agreement.id, null, spec.client.id, spec.client.displayName, "escrow_funded",
+  await activity(agreement.id, null, spec.client.id, spec.client.displayName, "escrow_funded",
     `Escrow funded with $${(total / 100).toLocaleString("en-US")}`, startedAt,
     { escrowAddress: agreement.escrowAddress, simulated: true }, fundingTx);
 
   return { agreement, milestones };
 }
 
-function activity(
+async function activity(
   agreementId: string,
   milestoneId: string | null,
   actorId: string | null,
@@ -303,7 +304,7 @@ function activity(
   metadata: Record<string, unknown> = {},
   tx: string | null = null,
 ) {
-  activityRepo.insert({
+  await activityRepo.insert({
     id: newId("act"),
     agreementId,
     milestoneId,
@@ -318,7 +319,7 @@ function activity(
 }
 
 /** Settle a milestone end to end: approve, pay, confirm, and write the trail. */
-function settleMilestone(params: {
+async function settleMilestone(params: {
   agreement: Agreement;
   milestone: Milestone;
   client: User;
@@ -327,9 +328,9 @@ function settleMilestone(params: {
   releasedAt: string;
   amount?: number;
   evidence?: Array<{ kind: EvidenceKind; title: string; source: string; description: string; metadata: Record<string, unknown> }>;
-}): Milestone {
+}): Promise<Milestone> {
   const amount = params.amount ?? params.milestone.amount;
-  const providerAddress = walletsRepo.primaryAddress(params.provider.id)!;
+  const providerAddress = (await walletsRepo.primaryAddress(params.provider.id))!;
   const approvedAt = new Date(Date.parse(params.releasedAt) - 40 * 60_000).toISOString();
 
   const items = params.evidence ?? [
@@ -352,7 +353,7 @@ function settleMilestone(params: {
       submittedAt: params.submittedAt,
     });
     hashes.push(hash);
-    evidenceRepo.insert({
+    await evidenceRepo.insert({
       id: newId("evd"),
       milestoneId: params.milestone.id,
       agreementId: params.agreement.id,
@@ -374,7 +375,7 @@ function settleMilestone(params: {
   registerHistoricalTx(anchorTx, between(4_700_000, 4_810_000));
   registerHistoricalTx(releaseTx, between(4_700_000, 4_812_000));
 
-  paymentsRepo.insert({
+  await paymentsRepo.insert({
     id: newId("pay"),
     agreementId: params.agreement.id,
     milestoneId: params.milestone.id,
@@ -395,7 +396,7 @@ function settleMilestone(params: {
     confirmedAt: params.releasedAt,
   });
 
-  const settled = milestonesRepo.update({
+  const settled = await milestonesRepo.update({
     ...params.milestone,
     status: amount >= params.milestone.amount ? "released" : "partially_approved",
     releasedAmount: amount,
@@ -404,15 +405,15 @@ function settleMilestone(params: {
     releasedAt: amount >= params.milestone.amount ? params.releasedAt : null,
   });
 
-  activity(params.agreement.id, params.milestone.id, params.provider.id, params.provider.displayName,
+  await activity(params.agreement.id, params.milestone.id, params.provider.id, params.provider.displayName,
     "milestone_submitted", `Submitted ${params.milestone.title} for review`, params.submittedAt,
     { evidenceCount: items.length, bundleHash }, anchorTx);
-  activity(params.agreement.id, params.milestone.id, null, "System",
+  await activity(params.agreement.id, params.milestone.id, null, "System",
     "evidence_uploaded", `${items.length} evidence items recorded and hashed`,
     new Date(Date.parse(params.submittedAt) + 90_000).toISOString(), { bundleHash }, anchorTx);
-  activity(params.agreement.id, params.milestone.id, params.client.id, params.client.displayName,
+  await activity(params.agreement.id, params.milestone.id, params.client.id, params.client.displayName,
     "milestone_approved", `Approved ${params.milestone.title}`, approvedAt, { amount });
-  activity(params.agreement.id, params.milestone.id, null, "System",
+  await activity(params.agreement.id, params.milestone.id, null, "System",
     "payment_released", `Payment released: $${(amount / 100).toLocaleString("en-US")}`,
     params.releasedAt, { simulated: true, recipient: providerAddress }, releaseTx);
 
@@ -447,7 +448,7 @@ const CLIENT_COMPANIES = [
   { handle: "vantage-partners", name: "Vantage Partners", color: "#55524B", repeat: 1 },
 ];
 
-function seedHistory(ctx: SeedContext): void {
+async function seedHistory(ctx: SeedContext): Promise<void> {
   let sequence = 1;
   let dayCursor = 690;
 
@@ -478,7 +479,7 @@ function seedHistory(ctx: SeedContext): void {
         dueOffsetDays: Math.round((durationDays * (index + 1)) / template.phases.length),
       }));
 
-      const { agreement, milestones } = buildAgreement({
+      const { agreement, milestones } = await buildAgreement({
         title: `${template.title} — ${company.displayName}`,
         description: `${template.title} delivered for ${company.displayName}.`,
         client: company,
@@ -498,7 +499,7 @@ function seedHistory(ctx: SeedContext): void {
         if (late) allOnTime = false;
         const releasedAt = new Date(dueAt + (late ? between(1, 4) * DAY : -between(1, 3) * DAY)).toISOString();
         const submittedAt = new Date(Date.parse(releasedAt) - between(1, 3) * DAY).toISOString();
-        settleMilestone({
+        await settleMilestone({
           agreement,
           milestone,
           client: company,
@@ -512,26 +513,26 @@ function seedHistory(ctx: SeedContext): void {
         Date.parse(agreement.startedAt!) + durationDays * DAY + (allOnTime ? 0 : 2 * DAY),
       ).toISOString();
 
-      agreementsRepo.update({ ...agreement, status: "completed", completedAt });
-      activity(agreement.id, null, null, "System", "agreement_completed",
+      await agreementsRepo.update({ ...agreement, status: "completed", completedAt });
+      await activity(agreement.id, null, null, "System", "agreement_completed",
         "All milestones settled. Agreement complete.", completedAt, { totalSettled: agreement.totalAmount });
 
       indexAgreement({ ...agreement, status: "completed", completedAt }, milestones);
     }
   }
 
-  seedResolvedDispute(ctx, ++sequence);
+  await seedResolvedDispute(ctx, ++sequence);
 }
 
 /**
  * One historical dispute, resolved by a partial settlement. A provider profile with
  * zero disputes across two years of work would be less credible, not more.
  */
-function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
+async function seedResolvedDispute(ctx: SeedContext, sequence: number): Promise<void> {
   const client = ctx.historicalClients[2];
   const startedDaysAgo = 148;
 
-  const { agreement, milestones } = buildAgreement({
+  const { agreement, milestones } = await buildAgreement({
     title: `Campaign microsite — ${client.displayName}`,
     description: "Single-page campaign microsite with a countdown and signup capture.",
     client,
@@ -565,7 +566,7 @@ function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
     sequence,
   });
 
-  settleMilestone({
+  await settleMilestone({
     agreement,
     milestone: milestones[0],
     client,
@@ -577,9 +578,9 @@ function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
   // Second milestone: disputed over an integration scope disagreement, then settled.
   const disputedAt = daysAgo(startedDaysAgo - 28);
   const resolvedAt = daysAgo(startedDaysAgo - 24);
-  const providerAddress = walletsRepo.primaryAddress(ctx.alex.id)!;
+  const providerAddress = (await walletsRepo.primaryAddress(ctx.alex.id))!;
 
-  const dispute = disputesRepo.insert({
+  const dispute = await disputesRepo.insert({
     id: newId("dsp"),
     agreementId: agreement.id,
     milestoneId: milestones[1].id,
@@ -597,14 +598,14 @@ function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
     resolvedAt,
   });
 
-  disputesRepo.addMessage({
+  await disputesRepo.addMessage({
     id: newId("msg"),
     disputeId: dispute.id,
     authorId: ctx.alex.id,
     body: "Understood. The CRM endpoint was not in the written criteria, so I did not scope it. Happy to settle at 80% and quote the integration separately.",
     createdAt: new Date(Date.parse(disputedAt) + 6 * HOUR).toISOString(),
   });
-  disputesRepo.addMessage({
+  await disputesRepo.addMessage({
     id: newId("msg"),
     disputeId: dispute.id,
     authorId: client.id,
@@ -615,7 +616,7 @@ function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
   const settlementTx = txHash(`settle-${dispute.id}`);
   registerHistoricalTx(settlementTx, between(4_700_000, 4_760_000));
 
-  paymentsRepo.insert({
+  await paymentsRepo.insert({
     id: newId("pay"),
     agreementId: agreement.id,
     milestoneId: milestones[1].id,
@@ -636,7 +637,7 @@ function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
     confirmedAt: resolvedAt,
   });
 
-  milestonesRepo.update({
+  await milestonesRepo.update({
     ...milestones[1],
     status: "released",
     releasedAmount: 112_000,
@@ -645,17 +646,17 @@ function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
     releasedAt: resolvedAt,
   });
 
-  activity(agreement.id, milestones[1].id, ctx.alex.id, ctx.alex.displayName, "milestone_submitted",
+  await activity(agreement.id, milestones[1].id, ctx.alex.id, ctx.alex.displayName, "milestone_submitted",
     "Submitted Build & launch for review", daysAgo(startedDaysAgo - 30), {});
-  activity(agreement.id, milestones[1].id, client.id, client.displayName, "dispute_opened",
+  await activity(agreement.id, milestones[1].id, client.id, client.displayName, "dispute_opened",
     "Dispute opened on Build & launch: Signup integration scope", disputedAt, { disputeId: dispute.id });
-  activity(agreement.id, milestones[1].id, client.id, client.displayName, "dispute_resolved",
+  await activity(agreement.id, milestones[1].id, client.id, client.displayName, "dispute_resolved",
     "Dispute resolved: released partial · $1,120.00 to provider", resolvedAt,
     { disputeId: dispute.id, providerAmount: 112_000, clientRefund: 28_000 }, settlementTx);
 
   const completedAt = new Date(Date.parse(resolvedAt) + HOUR).toISOString();
-  agreementsRepo.update({ ...agreement, status: "completed", completedAt });
-  activity(agreement.id, null, null, "System", "agreement_completed",
+  await agreementsRepo.update({ ...agreement, status: "completed", completedAt });
+  await activity(agreement.id, null, null, "System", "agreement_completed",
     "All milestones settled. Agreement complete.", completedAt, {});
   indexAgreement({ ...agreement, status: "completed", completedAt }, milestones);
 }
@@ -665,7 +666,7 @@ function seedResolvedDispute(ctx: SeedContext, sequence: number): void {
 // ---------------------------------------------------------------------------
 
 async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
-  const { agreement, milestones } = buildAgreement({
+  const { agreement, milestones } = await buildAgreement({
     title: "E-commerce Website Redesign",
     description:
       "Full redesign and rebuild of the Northstar Coffee storefront: five pages, responsive layouts, a new product grid, and a rebuilt checkout flow. Staging environment throughout, production launch at the end.",
@@ -731,7 +732,7 @@ async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
   });
 
   // --- Milestone 1: Design, settled.
-  settleMilestone({
+  await settleMilestone({
     agreement,
     milestone: milestones[0],
     client: ctx.northstar,
@@ -809,7 +810,7 @@ async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
     });
     hashes.push(hash);
     evidenceRecords.push(
-      evidenceRepo.insert({
+      await evidenceRepo.insert({
         id: newId("evd"),
         milestoneId: milestones[1].id,
         agreementId: agreement.id,
@@ -831,7 +832,7 @@ async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
   registerHistoricalTx(anchorTx, 4_811_902);
 
   const reviewDueAt = new Date(Date.parse(submittedAt) + 72 * HOUR).toISOString();
-  const development = milestonesRepo.update({
+  const development = await milestonesRepo.update({
     ...milestones[1],
     status: "under_review",
     submittedAt,
@@ -841,22 +842,22 @@ async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
   // Run the real analyzer over the real evidence. The demo shows the actual
   // engine output -- including the cross-browser criterion it cannot verify.
   const analysis = await analyzeEvidence(development, evidenceRecords, 1);
-  analysisRepo.insert({ ...analysis, createdAt: new Date(Date.parse(submittedAt) + 3 * 60_000).toISOString() });
+  await analysisRepo.insert({ ...analysis, createdAt: new Date(Date.parse(submittedAt) + 3 * 60_000).toISOString() });
 
-  activity(agreement.id, development.id, ctx.alex.id, ctx.alex.displayName, "milestone_submitted",
+  await activity(agreement.id, development.id, ctx.alex.id, ctx.alex.displayName, "milestone_submitted",
     "Submitted Development for review", submittedAt, { evidenceCount: evidenceRecords.length, bundleHash }, anchorTx);
-  activity(agreement.id, development.id, null, "System", "evidence_uploaded",
+  await activity(agreement.id, development.id, null, "System", "evidence_uploaded",
     `${evidenceRecords.length} evidence items recorded and hashed`,
     new Date(Date.parse(submittedAt) + 60_000).toISOString(),
     { bundleHash, kinds: evidenceRecords.map((e) => e.kind) }, anchorTx);
-  activity(agreement.id, development.id, null, "Verification assistant", "evidence_analyzed",
+  await activity(agreement.id, development.id, null, "Verification assistant", "evidence_analyzed",
     `Evidence analyzed: ${analysis.recommendation.replace(/_/g, " ")} (${analysis.confidence}% confidence)`,
     new Date(Date.parse(submittedAt) + 3 * 60_000).toISOString(),
     { recommendation: analysis.recommendation, confidence: analysis.confidence, engine: analysis.engine, advisory: true });
 
   // --- Milestone 3 stays locked until Development settles.
 
-  notificationsRepo.insert({
+  await notificationsRepo.insert({
     id: newId("ntf"),
     userId: ctx.northstar.id,
     kind: "milestone_ready_for_review",
@@ -868,7 +869,7 @@ async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
     createdAt: submittedAt,
   });
 
-  notificationsRepo.insert({
+  await notificationsRepo.insert({
     id: newId("ntf"),
     userId: ctx.alex.id,
     kind: "payment_released",
@@ -880,7 +881,7 @@ async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
     createdAt: daysAgo(24, 11, 8),
   });
 
-  indexAgreement(agreement, milestonesRepo.forAgreement(agreement.id));
+  indexAgreement(agreement, await milestonesRepo.forAgreement(agreement.id));
 }
 
 // ---------------------------------------------------------------------------
@@ -890,7 +891,7 @@ async function seedHeadlineProject(ctx: SeedContext): Promise<void> {
 export async function seedDemoData(): Promise<{ alexId: string; northstarId: string; operatorId: string; headlineAgreementId: string }> {
   resetRandom();
 
-  const alex = makeUser({
+  const alex = await makeUser({
     handle: "alexmorgan",
     displayName: "Alex Morgan",
     headline: "Full-stack developer",
@@ -902,7 +903,7 @@ export async function seedDemoData(): Promise<{ alexId: string; northstarId: str
     createdDaysAgo: 760,
   });
 
-  const northstar = makeUser({
+  const northstar = await makeUser({
     handle: "northstarcoffee",
     displayName: "Northstar Coffee",
     headline: "Specialty coffee roaster",
@@ -913,7 +914,7 @@ export async function seedDemoData(): Promise<{ alexId: string; northstarId: str
     createdDaysAgo: 62,
   });
 
-  const operator = makeUser({
+  const operator = await makeUser({
     handle: "vf-operations",
     displayName: "VerseFlow Operations",
     headline: "Dispute resolution and support",
@@ -924,30 +925,34 @@ export async function seedDemoData(): Promise<{ alexId: string; northstarId: str
     createdDaysAgo: 800,
   });
 
-  const historicalClients = CLIENT_COMPANIES.map((company, i) =>
-    makeUser({
-      handle: company.handle,
-      displayName: company.name,
-      headline: "",
-      color: company.color,
-      professions: ["client"],
-      createdDaysAgo: 700 - i * 30,
-    }),
-  );
+  // Sequential rather than Promise.all: the seed is deterministic, and parallel
+  // inserts would interleave the generated ids unpredictably.
+  const historicalClients: User[] = [];
+  for (const [i, company] of CLIENT_COMPANIES.entries()) {
+    historicalClients.push(
+      await makeUser({
+        handle: company.handle,
+        displayName: company.name,
+        headline: "",
+        color: company.color,
+        professions: ["client"],
+        createdDaysAgo: 700 - i * 30,
+      }),
+    );
+  }
 
   const ctx: SeedContext = { alex, northstar, operator, historicalClients };
 
-  seedHistory(ctx);
+  await seedHistory(ctx);
   await seedHeadlineProject(ctx);
 
   // A short, curated public showcase rather than the whole history.
-  const completed = agreementsRepo
-    .forUser(alex.id)
+  const completed = (await agreementsRepo.forUser(alex.id))
     .filter((a) => a.status === "completed")
     .slice(0, 3);
 
-  completed.forEach((agreement, index) => {
-    showcaseRepo.upsert({
+  for (const [index, agreement] of completed.entries()) {
+    await showcaseRepo.upsert({
       id: newId("shw"),
       userId: alex.id,
       agreementId: agreement.id,
@@ -962,14 +967,14 @@ export async function seedDemoData(): Promise<{ alexId: string; northstarId: str
       position: index,
       createdAt: nowIso(),
     });
-  });
+  }
 
-  indexPublicProfile(alex);
+  await indexPublicProfile(alex);
 
-  const headline = agreementsRepo.byReference("VF-1042");
+  const headline = await agreementsRepo.byReference("VF-1042");
 
   // Rebuild simulated escrow state so balances reconcile immediately after seeding.
-  hydrateSimulatedEscrowFromDb();
+  await hydrateSimulatedEscrowFromDb();
 
   return {
     alexId: alex.id,
@@ -985,15 +990,17 @@ export async function seedDemoData(): Promise<{ alexId: string; northstarId: str
  * Called after seeding and on server start, so a restart does not leave a funded
  * agreement pointing at escrow state that no longer exists in memory.
  */
-export function hydrateSimulatedEscrowFromDb(): void {
-  const records = agreementsRepo
-    .all()
-    .filter((a) => a.onChainId && ["funded", "in_progress", "completed", "disputed", "paused"].includes(a.status))
-    .map((a) => {
-      const milestones = milestonesRepo.forAgreement(a.id);
-      const clientAddress = walletsRepo.primaryAddress(a.clientId) ?? "";
-      const providerAddress = a.providerId ? (walletsRepo.primaryAddress(a.providerId) ?? "") : "";
-      return {
+export async function hydrateSimulatedEscrowFromDb(): Promise<void> {
+  const relevant = (await agreementsRepo.all()).filter(
+    (a) => a.onChainId && ["funded", "in_progress", "completed", "disputed", "paused"].includes(a.status),
+  );
+
+  const records = [];
+  for (const a of relevant) {
+      const milestones = await milestonesRepo.forAgreement(a.id);
+      const clientAddress = (await walletsRepo.primaryAddress(a.clientId)) ?? "";
+      const providerAddress = a.providerId ? (await walletsRepo.primaryAddress(a.providerId) ?? "") : "";
+      records.push({
         onChainId: a.onChainId!,
         clientAddress,
         providerAddress,
@@ -1001,8 +1008,8 @@ export function hydrateSimulatedEscrowFromDb(): void {
         milestoneAmounts: milestones.map((m) => m.amount),
         milestoneReleased: milestones.map((m) => m.releasedAmount),
         cancelled: a.status === "cancelled",
-      };
-    });
+      });
+  }
 
   hydrateSimulatedEscrow(records);
 }
@@ -1011,8 +1018,8 @@ export function hydrateSimulatedEscrowFromDb(): void {
 // Reset
 // ---------------------------------------------------------------------------
 
-export function clearAllData(): void {
-  const db = getDb();
+export async function clearAllData(): Promise<void> {
+  const db = await getDb();
 
   /**
    * The immutability triggers must come down BEFORE any delete, not just before
@@ -1023,41 +1030,29 @@ export function clearAllData(): void {
    * Wiping the environment is a different operation from editing history: it
    * throws the whole dataset away rather than rewriting individual records.
    */
-  const IMMUTABILITY_TRIGGERS = [
-    { name: "payments_no_delete", sql: `CREATE TRIGGER payments_no_delete BEFORE DELETE ON payments BEGIN SELECT RAISE(ABORT, 'payments are immutable once recorded'); END;` },
-    { name: "payments_confirmed_immutable", sql: `CREATE TRIGGER payments_confirmed_immutable BEFORE UPDATE ON payments WHEN OLD.status = 'confirmed' AND (NEW.amount <> OLD.amount OR NEW.recipient_address <> OLD.recipient_address OR IFNULL(NEW.tx_hash, '') <> IFNULL(OLD.tx_hash, '')) BEGIN SELECT RAISE(ABORT, 'confirmed payments cannot be altered'); END;` },
-    { name: "activity_no_update", sql: `CREATE TRIGGER activity_no_update BEFORE UPDATE ON activity_events BEGIN SELECT RAISE(ABORT, 'activity events are append-only'); END;` },
-    { name: "audit_log_no_update", sql: `CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;` },
-    { name: "audit_log_no_delete", sql: `CREATE TRIGGER audit_log_no_delete BEFORE DELETE ON audit_log BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;` },
-  ];
-
   for (const trigger of IMMUTABILITY_TRIGGERS) {
-    db.exec(`DROP TRIGGER IF EXISTS ${trigger.name}`);
+    await db.query(`DROP TRIGGER IF EXISTS ${trigger.name} ON ${trigger.table}`);
   }
 
   try {
-    transaction(() => {
-      // Children before parents, so cascades never surprise us.
-      for (const table of [
-        "search_index", "analytics_events", "idempotency_keys", "rate_limits",
-        "evidence_analyses", "evidence", "revision_requests", "dispute_messages",
-        "disputes", "notifications", "notification_preferences", "showcase_items",
-        "payments", "activity_events", "audit_log",
-        "milestones", "agreements", "sessions", "wallet_addresses", "users",
-      ]) {
-        db.exec(`DELETE FROM ${table}`);
+    await transaction(async (tx) => {
+      for (const table of TABLES_IN_DEPENDENCY_ORDER) {
+        await tx.query(`DELETE FROM ${table}`);
       }
-    }, db);
+    });
   } finally {
     // Reinstated even if the wipe fails, so the guarantees are never left off.
     for (const trigger of IMMUTABILITY_TRIGGERS) {
-      db.exec(trigger.sql);
+      await db.query(
+        `CREATE TRIGGER ${trigger.name} ${trigger.when} ON ${trigger.table}` +
+          ` FOR EACH ROW EXECUTE FUNCTION ${trigger.fn}()`,
+      );
     }
   }
 
   resetSimulatedChain();
 }
 
-export function isSeeded(): boolean {
-  return agreementsRepo.byReference("VF-1042") !== null;
+export async function isSeeded(): Promise<boolean> {
+  return await agreementsRepo.byReference("VF-1042") !== null;
 }

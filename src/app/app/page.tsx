@@ -16,9 +16,9 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const auth = await requireAuth();
-  const summary = computeDashboardSummary(auth.user.id);
-  const actions = buildActionQueue(auth.user.id);
-  const bundles = listForUser(auth.user.id);
+  const summary = await computeDashboardSummary(auth.user.id);
+  const actions = await buildActionQueue(auth.user.id);
+  const bundles = await listForUser(auth.user.id);
 
   const active = bundles.filter((b) =>
     ["funded", "in_progress", "disputed", "paused", "awaiting_funding", "awaiting_signature"].includes(

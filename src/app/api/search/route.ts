@@ -11,7 +11,7 @@ export const GET = route({}, async ({ request, auth }) => {
   const term = (new URL(request.url).searchParams.get("q") ?? "").trim();
   if (term.length < 2) return { results: [] };
 
-  const results = searchRepo.query(term, auth?.user.id ?? null, 20);
+  const results = await searchRepo.query(term, auth?.user.id ?? null, 20);
   return {
     results: results.map((r) => ({
       type: r.entityType,
