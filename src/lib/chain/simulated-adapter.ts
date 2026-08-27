@@ -292,6 +292,29 @@ export function hydrateSimulatedEscrow(
   }
 }
 
+/**
+ * Make a previously-issued simulated transaction known to this instance.
+ *
+ * Transaction state lives in module memory, so on serverless a confirmation poll
+ * can land on a different instance than the one that issued the transaction.
+ * Without this, `verifyTransaction` would report a perfectly good payment as
+ * failed simply because this instance had never heard of it.
+ *
+ * The confirmation deadline is derived from when the payment was actually
+ * created, recorded durably in the database -- so the answer is the same on every
+ * instance, and a transaction cannot appear to confirm early by moving hosts.
+ */
+export function ensureTxKnown(txHash: string, createdAtMs: number, latencyMs: number): void {
+  if (transactions.has(txHash)) return;
+
+  transactions.set(txHash, {
+    hash: txHash,
+    status: Date.now() >= createdAtMs + latencyMs ? "confirmed" : "pending",
+    blockNumber: ++blockHeight,
+    confirmAt: createdAtMs + latencyMs,
+  });
+}
+
 /** Mark a previously-issued simulated transaction as confirmed. Used by tests and seeds. */
 export function forceConfirm(txHash: string): void {
   const tx = transactions.get(txHash);

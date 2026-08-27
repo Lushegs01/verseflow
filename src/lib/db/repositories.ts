@@ -1071,3 +1071,34 @@ export const searchRepo = {
   remove: (entityType: string, entityId: string, db?: Executor) =>
     run(db, "DELETE FROM search_index WHERE entity_type=$1 AND entity_id=$2", [entityType, entityId]),
 };
+
+// ---------------------------------------------------------------------------
+// Simulated transactions
+// ---------------------------------------------------------------------------
+
+/**
+ * Durable record of transactions the simulated settlement layer issued.
+ *
+ * The in-memory ledger does not survive a serverless cold start, and a hash that
+ * cannot be found must never be treated as valid -- otherwise an invented hash
+ * would confirm. Only hashes recorded here are rehydrated.
+ */
+export const simulatedTxRepo = {
+  record: (txHash: string, kind: string, agreementId: string | null, db?: Executor) =>
+    run(
+      db,
+      `INSERT INTO simulated_transactions (tx_hash, kind, agreement_id, created_at)
+       VALUES ($1,$2,$3,$4) ON CONFLICT (tx_hash) DO NOTHING`,
+      [txHash, kind, agreementId, nowIso()],
+    ),
+
+  /** Creation time of an issued transaction, or null if we never issued it. */
+  async createdAt(txHash: string, db?: Executor): Promise<string | null> {
+    return one(
+      db,
+      "SELECT created_at FROM simulated_transactions WHERE tx_hash = $1",
+      [txHash],
+      (row) => row.created_at as string,
+    );
+  },
+};

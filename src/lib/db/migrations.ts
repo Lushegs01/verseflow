@@ -368,6 +368,27 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_search_type ON search_index(entity_type);
     `,
   },
+  {
+    name: "0004_simulated_transactions",
+    up: `
+      -- Durable record of transactions the SIMULATED settlement layer issued.
+      --
+      -- The simulated ledger lives in module memory, which does not survive a
+      -- serverless cold start. Without a durable record, a confirmation poll
+      -- landing on a fresh instance could not tell a real transaction it had
+      -- simply never heard of from a hash someone invented -- and it must never
+      -- confirm the latter. Only hashes recorded here are rehydrated.
+      --
+      -- Live mode does not use this table; the chain is the record.
+      CREATE TABLE simulated_transactions (
+        tx_hash TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        agreement_id TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_simtx_agreement ON simulated_transactions(agreement_id);
+    `,
+  },
 ];
 
 /**
@@ -376,6 +397,7 @@ export const MIGRATIONS: Migration[] = [
  */
 export const TABLES_IN_DEPENDENCY_ORDER = [
   "search_index", "analytics_events", "idempotency_keys", "rate_limits",
+  "simulated_transactions",
   "evidence_analyses", "evidence", "revision_requests", "dispute_messages",
   "disputes", "notifications", "notification_preferences", "showcase_items",
   "payments", "activity_events", "audit_log",

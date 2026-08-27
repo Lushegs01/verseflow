@@ -15,6 +15,7 @@ import {
   disputesRepo,
   paymentsRepo,
   idempotencyRepo,
+  simulatedTxRepo,
 } from "@/lib/db/repositories";
 import type { Dispute, Milestone, User } from "@/lib/domain/types";
 import { AppError, errors } from "@/lib/domain/errors";
@@ -25,6 +26,7 @@ import { formatMoney } from "@/lib/domain/money";
 import { getSettlementAdapter } from "@/lib/chain";
 import { SimulatedVerseAdapter } from "@/lib/chain/simulated-adapter";
 import type { AgreementBundle } from "./agreements";
+import { ensureSimulatedEscrow } from "./escrow";
 import { recordActivity, notify, audit, track } from "./activity";
 
 export async function openDispute(params: {
@@ -258,6 +260,8 @@ export async function resolveDispute(params: {
     let txHash: string | null = null;
 
     if (input.resolution !== "withdrawn" && agreement.onChainId) {
+      // A cold serverless instance has no simulated escrow in memory yet.
+      await ensureSimulatedEscrow(params.bundle);
       const prepared = await adapter.prepareDisputeSettlement({
         onChainId: agreement.onChainId,
         milestoneIndex: milestone.position,
@@ -267,6 +271,7 @@ export async function resolveDispute(params: {
         clientAddress: params.bundle.clientAddress ?? "",
       });
       txHash = prepared.simulatedReceipt?.txHash ?? null;
+      if (txHash) await simulatedTxRepo.record(txHash, "dispute_settlement", agreement.id);
     }
 
     const result = await transaction(async () => {

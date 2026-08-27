@@ -20,6 +20,7 @@ import {
   paymentsRepo,
   idempotencyRepo,
   walletsRepo,
+  simulatedTxRepo,
 } from "@/lib/db/repositories";
 import type { Agreement, Milestone, Payment, PaymentKind, User } from "@/lib/domain/types";
 import { AppError, errors } from "@/lib/domain/errors";
@@ -33,8 +34,85 @@ import {
 import { formatMoney } from "@/lib/domain/money";
 import { getSettlementAdapter } from "@/lib/chain";
 import { ChainError, type PreparedTransaction } from "@/lib/chain/adapter";
+import {
+  SimulatedVerseAdapter,
+  hydrateSimulatedEscrow,
+  ensureTxKnown,
+} from "@/lib/chain/simulated-adapter";
 import { hydrate, computeTermsHash, type AgreementBundle } from "./agreements";
 import { recordActivity, notify, audit, track, indexPayment } from "./activity";
+
+// ---------------------------------------------------------------------------
+// Simulated escrow rehydration
+// ---------------------------------------------------------------------------
+
+/**
+ * Rebuild one agreement's simulated escrow state from the database.
+ *
+ * The simulated ledger lives in module memory. On a long-lived server it is
+ * populated once and stays warm, but on serverless every cold instance starts
+ * empty -- and an API route does not pass through the layout that used to do the
+ * rehydration. A release landing on a fresh instance would fail with "Escrow
+ * could not be found" even though the database knows exactly what is escrowed.
+ *
+ * So each chain operation ensures its own agreement is present first. Scoped to a
+ * single agreement rather than the whole table, and a no-op once warm.
+ *
+ * Live mode reads state from the chain and needs none of this.
+ */
+export async function ensureSimulatedEscrow(bundle: AgreementBundle): Promise<void> {
+  const adapter = getSettlementAdapter();
+  if (!(adapter instanceof SimulatedVerseAdapter)) return;
+
+  const { agreement, milestones } = bundle;
+  if (!agreement.onChainId || !agreement.agreementHash) return;
+
+  // Already warm on this instance.
+  if (await adapter.readAgreement(agreement.onChainId)) return;
+
+  const clientAddress =
+    bundle.clientAddress ?? (await walletsRepo.primaryAddress(agreement.clientId)) ?? "";
+  const providerAddress = bundle.providerAddress ?? "";
+  if (!clientAddress || !providerAddress) return;
+
+  hydrateSimulatedEscrow([
+    {
+      onChainId: agreement.onChainId,
+      clientAddress,
+      providerAddress,
+      termsHash: agreement.agreementHash,
+      milestoneAmounts: milestones.map((m) => m.amount),
+      // Rebuilt from the ledger, so a rehydrated instance knows exactly what has
+      // already been paid and cannot re-release it.
+      milestoneReleased: await Promise.all(
+        milestones.map((m) => paymentsRepo.confirmedTotalForMilestone(m.id)),
+      ),
+      cancelled: agreement.status === "cancelled",
+    },
+  ]);
+}
+
+/**
+ * Teach this instance about a simulated transaction it did not issue.
+ *
+ * The deadline comes from the durable creation timestamp, so every instance
+ * reaches the same verdict.
+ */
+async function ensureSimulatedTx(
+  adapter: ReturnType<typeof getSettlementAdapter>,
+  txHash: string | null,
+): Promise<void> {
+  if (!txHash || !(adapter instanceof SimulatedVerseAdapter)) return;
+
+  // Only a transaction we actually issued may be rehydrated. A hash with no
+  // durable record is one we never issued, and must stay unknown so
+  // verifyTransaction reports it as failed rather than confirming it.
+  const issuedAt = await simulatedTxRepo.createdAt(txHash);
+  if (!issuedAt) return;
+
+  const latency = Number(process.env.SIMULATED_CONFIRM_MS ?? 2200);
+  ensureTxKnown(txHash, Date.parse(issuedAt), latency);
+}
 
 // ---------------------------------------------------------------------------
 // Funding
@@ -123,6 +201,10 @@ export async function prepareFunding(params: {
       termsHash,
     });
 
+    if (prepared.simulatedReceipt) {
+      await simulatedTxRepo.record(prepared.simulatedReceipt.txHash, "funding", agreement.id);
+    }
+
     const intent: FundingIntent = {
       agreementId: agreement.id,
       reference: agreement.reference,
@@ -173,6 +255,7 @@ export async function confirmFunding(params: {
   }
 
   const adapter = getSettlementAdapter();
+  await ensureSimulatedTx(adapter, params.txHash);
   const receipt = await adapter.verifyTransaction(params.txHash).catch(toAppErrorThrow);
 
   if (receipt.status === "pending") {
@@ -342,6 +425,10 @@ export async function releaseMilestone(params: {
   const clientAddress =
     params.bundle.clientAddress ?? await walletsRepo.primaryAddress(agreement.clientId) ?? "";
 
+  // A cold serverless instance holds no simulated escrow state, so rebuild this
+  // agreement's before asking the adapter to release against it.
+  await ensureSimulatedEscrow(params.bundle);
+
   try {
     // --- State. Milestone-level checks run before agreement-level ones because
     // they produce the more specific error: a settled milestone on a completed
@@ -390,6 +477,10 @@ export async function releaseMilestone(params: {
       recipientAddress: providerAddress,
       clientAddress,
     });
+
+    if (prepared.simulatedReceipt) {
+      await simulatedTxRepo.record(prepared.simulatedReceipt.txHash, "release", agreement.id);
+    }
 
     const isFull = params.amount >= remaining;
 
@@ -482,6 +573,7 @@ export async function confirmRelease(params: {
   }
 
   const adapter = getSettlementAdapter();
+  await ensureSimulatedTx(adapter, params.payment.txHash);
   const receipt = await adapter.verifyTransaction(params.payment.txHash).catch(toAppErrorThrow);
 
   if (receipt.status === "pending") {
@@ -662,6 +754,7 @@ export async function reconcile(agreementId: string): Promise<{
     return { ok: true, issues: ["Agreement has not been funded yet."], onChainTotal: null, ledgerTotal };
   }
 
+  await ensureSimulatedEscrow(await hydrate(agreement));
   const adapter = getSettlementAdapter();
   const onChain = await adapter.readAgreement(agreement.onChainId).catch(() => null);
 
