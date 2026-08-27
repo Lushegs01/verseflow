@@ -128,7 +128,7 @@ export const VERSEFLOW_ESCROW_ABI = [
       { name: "milestoneIndex", type: "uint256", indexed: true },
       { name: "provider", type: "address", indexed: true },
       { name: "amount", type: "uint256", indexed: false },
-      { name: "partial", type: "bool", indexed: false },
+      { name: "isPartial", type: "bool", indexed: false },
     ],
   },
   {

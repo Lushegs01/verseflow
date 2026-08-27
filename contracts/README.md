@@ -66,28 +66,53 @@ The full audit trail is reconstructable from events alone: `AgreementFunded`,
 
 ## Deploying
 
-The contract has no constructor dependencies beyond the arbiter address.
+The contract has no constructor dependencies beyond the arbiter address, and no
+external imports, so compiling needs nothing but `solc`.
 
 ```bash
-# with foundry
-forge create contracts/VerseFlowEscrow.sol:VerseFlowEscrow \
-  --rpc-url "$VERSE_RPC_URL" \
-  --constructor-args "$ARBITER_ADDRESS" \
-  --private-key "$DEPLOYER_KEY"
+npm run contract:compile
 ```
+
+That writes `contracts/artifacts/VerseFlowEscrow.json` and fails the build if
+`src/lib/chain/abi.ts` has drifted from this source (see below).
+
+```bash
+DEPLOYER_PRIVATE_KEY=0x…      \
+ARBITER_ADDRESS=0x…           \
+VERSE_RPC_URL=https://…       \
+npm run contract:deploy -- --yes
+```
+
+Without `--yes` it stops after printing the deployment plan — chain id, deployer,
+balance, arbiter, estimated gas — so you can check the target before spending gas.
+The key is read from the environment and is never logged or written anywhere.
+
+Before deploying it refuses to continue if the RPC's chain id disagrees with
+`NEXT_PUBLIC_VERSE_CHAIN_ID`, if the arbiter is not a valid address, if the
+deployer's balance is zero, or if the artifact was built from a different version
+of this file (compared by content hash, since git does not preserve mtimes).
+
+After deploying it does **not** treat a transaction hash as success. It requires the
+receipt to report `success`, confirms code exists at the address, and calls
+`arbiter()` on the deployed contract to check the constructor actually took effect.
+Only then does it print the address.
 
 Then point the application at it — no application code changes:
 
 ```bash
 NEXT_PUBLIC_SETTLEMENT_MODE=live
-VERSE_RPC_URL=https://rpc.your-verse-endpoint
-VERSE_ESCROW_ADDRESS=0x…
-NEXT_PUBLIC_VERSE_CHAIN_ID=20197
-NEXT_PUBLIC_VERSE_EXPLORER_URL=https://explorer…
+VERSE_RPC_URL=https://rpc.testnet.oasys.games
+VERSE_ESCROW_ADDRESS=0x…                                 # printed by contract:deploy
+NEXT_PUBLIC_VERSE_CHAIN_ID=9372
+NEXT_PUBLIC_VERSE_EXPLORER_URL=https://explorer.testnet.oasys.games
 
 # for ERC-20 settlement; leave blank to settle in the native coin
 NEXT_PUBLIC_VERSE_USDC_ADDRESS=0x…
 ```
+
+The values above are the **Oasys Testnet** hub — real, free, and reachable, which makes it a
+usable target for proving live settlement. A specific Verse layer publishes its own chain id,
+RPC, and explorer; substitute those three and nothing else changes.
 
 If either `VERSE_RPC_URL` or `VERSE_ESCROW_ADDRESS` is missing, the application stays in
 simulated mode rather than reporting confirmations that did not happen.
@@ -103,8 +128,14 @@ step is the wallet's standard ERC-20 flow.
 ## The ABI stays in sync
 
 `src/lib/chain/abi.ts` declares the ABI as a typed `const`, so viem infers argument and
-return types from it. A mismatch between that file and this Solidity source becomes a
-**compile error** rather than a runtime revert.
+return types from it. Nothing in TypeScript can see this Solidity file, so that hand-written
+declaration is free to drift — and a drift does not surface until a real settlement reverts
+on chain.
+
+`npm run contract:compile` closes that gap. It compares every function, event, and error the
+application declares against the compiled ABI and **exits non-zero** if the application
+declares anything the contract does not have. The reverse is allowed: the contract carries
+custom errors and events the application has no reason to decode.
 
 ---
 

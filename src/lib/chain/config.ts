@@ -44,6 +44,11 @@ export function getChainConfig(): VerseChainConfig {
 
   return {
     mode,
+    // 20197 is a placeholder, not a real network. It is deliberately not a live chain
+    // id: it only ever labels simulated activity, and borrowing a real network's id for
+    // transactions that never touched it would be its own small lie. Live settlement
+    // never relies on this default -- EvmVerseAdapter verifies the configured id against
+    // the RPC endpoint and refuses to build a transaction if the two disagree.
     chainId: readInt(process.env.NEXT_PUBLIC_VERSE_CHAIN_ID, 20197),
     name: process.env.NEXT_PUBLIC_VERSE_CHAIN_NAME ?? "Verse",
     rpcUrl,

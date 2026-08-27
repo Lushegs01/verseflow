@@ -57,7 +57,48 @@ export class EvmVerseAdapter implements SettlementAdapter {
     return this.escrow;
   }
 
+  /**
+   * Confirm the configured network is the network actually being talked to, once.
+   *
+   * `chainId` comes from the environment and is stamped into every transaction handed
+   * to a wallet. If it disagrees with the endpoint -- an RPC swapped without updating
+   * the chain id, a Verse layer's value left at another network's -- the wallet signs
+   * for a chain the escrow is not deployed on. Checking the escrow address carries
+   * code catches the matching mistake of pointing at the right chain but a dead address.
+   *
+   * Cached as a promise so concurrent callers share one round trip, and cleared on
+   * failure so a transient RPC outage does not poison the adapter for its lifetime.
+   */
+  private preflight: Promise<void> | null = null;
+
+  private async assertNetwork(): Promise<void> {
+    this.preflight ??= (async () => {
+      const actual = await this.client.getChainId();
+      if (actual !== this.chainId) {
+        throw new ChainError(
+          `Configured chain ${this.chainId} does not match the RPC endpoint, which reports ` +
+            `chain ${actual}. Settlement is halted: a transaction built for the wrong chain ` +
+            "would be signed against a network the escrow is not deployed on.",
+          "config",
+        );
+      }
+      const code = await this.client.getCode({ address: this.escrow });
+      if (!code || code === "0x") {
+        throw new ChainError(
+          `No contract code at ${this.escrow} on chain ${actual}. Check VERSE_ESCROW_ADDRESS.`,
+          "config",
+        );
+      }
+    })().catch((error) => {
+      this.preflight = null;
+      throw error;
+    });
+
+    return this.preflight;
+  }
+
   async prepareFunding(params: FundEscrowParams): Promise<PreparedTransaction> {
+    await this.assertNetwork();
     const asset = getAsset(params.asset);
     const amounts = params.milestoneAmounts.map((a) => toChainUnits(a, params.asset));
     const total = amounts.reduce((a, b) => a + b, 0n);
@@ -86,6 +127,7 @@ export class EvmVerseAdapter implements SettlementAdapter {
   }
 
   async prepareRelease(params: ReleaseParams): Promise<PreparedTransaction> {
+    await this.assertNetwork();
     const data = encodeFunctionData({
       abi: VERSEFLOW_ESCROW_ABI,
       functionName: "releaseMilestone",
@@ -106,6 +148,7 @@ export class EvmVerseAdapter implements SettlementAdapter {
   }
 
   async prepareEvidenceAnchor(params: AnchorEvidenceParams): Promise<PreparedTransaction> {
+    await this.assertNetwork();
     const data = encodeFunctionData({
       abi: VERSEFLOW_ESCROW_ABI,
       functionName: "anchorEvidence",
@@ -127,6 +170,7 @@ export class EvmVerseAdapter implements SettlementAdapter {
   }
 
   async prepareDisputeSettlement(params: SettleDisputeParams): Promise<PreparedTransaction> {
+    await this.assertNetwork();
     const data = encodeFunctionData({
       abi: VERSEFLOW_ESCROW_ABI,
       functionName: "settleDispute",
@@ -152,6 +196,7 @@ export class EvmVerseAdapter implements SettlementAdapter {
    * unconfirmed transaction as failed would be as wrong as treating it as settled.
    */
   async verifyTransaction(txHash: string): Promise<TxReceipt> {
+    await this.assertNetwork();
     try {
       const receipt = await this.client.getTransactionReceipt({ hash: txHash as `0x${string}` });
 
@@ -189,6 +234,7 @@ export class EvmVerseAdapter implements SettlementAdapter {
   }
 
   async readAgreement(onChainId: string): Promise<OnChainAgreementState | null> {
+    await this.assertNetwork();
     try {
       const [result, milestones] = await Promise.all([
         this.client.readContract({
@@ -229,6 +275,7 @@ export class EvmVerseAdapter implements SettlementAdapter {
   }
 
   async verifyTerms(onChainId: string, expectedTermsHash: string): Promise<boolean> {
+    await this.assertNetwork();
     try {
       return (await this.client.readContract({
         address: this.escrow,

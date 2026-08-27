@@ -132,18 +132,50 @@ contracts and ~$51.9K settled, the seed and the computed metrics are both workin
 
 ## Going live on Verse
 
-Deploy the escrow contract, then set three variables — no application code
-changes:
+Three steps, no application code changes.
+
+**1. Compile.** Also fails if `src/lib/chain/abi.ts` has drifted from the Solidity
+source, which would otherwise only surface as a revert during a real settlement:
 
 ```bash
-NEXT_PUBLIC_SETTLEMENT_MODE=live
-VERSE_RPC_URL=https://rpc.your-verse-endpoint
-VERSE_ESCROW_ADDRESS=0x…
+npm run contract:compile
 ```
 
-See [`contracts/README.md`](../contracts/README.md) for deployment. If either the
-RPC URL or the escrow address is missing, the app stays simulated deliberately
-rather than pretending to be on a network.
+**2. Deploy.** This spends gas, so it runs from your machine with your key — the
+script reads `DEPLOYER_PRIVATE_KEY` from the environment and never logs or stores
+it. Omit `--yes` to print the deployment plan and stop:
+
+```bash
+DEPLOYER_PRIVATE_KEY=0x… ARBITER_ADDRESS=0x… VERSE_RPC_URL=https://rpc.testnet.oasys.games npm run contract:deploy -- --yes
+```
+
+It verifies the deployment rather than trusting the transaction hash: the receipt
+must report `success`, code must exist at the address, and `arbiter()` is read back
+from the chain to confirm the constructor took effect. Then it prints the address.
+
+**3. Point the app at it**, and redeploy:
+
+```bash
+vercel env add NEXT_PUBLIC_SETTLEMENT_MODE production   # live
+vercel env add VERSE_RPC_URL production                 # https://rpc.testnet.oasys.games
+vercel env add VERSE_ESCROW_ADDRESS production          # the printed address
+vercel env add NEXT_PUBLIC_VERSE_CHAIN_ID production    # 9372
+```
+
+If either `VERSE_RPC_URL` or `VERSE_ESCROW_ADDRESS` is missing, the app stays
+simulated deliberately rather than pretending to be on a network — so a partial
+configuration downgrades safely instead of reporting confirmations that never happened.
+
+### Which network
+
+**Oasys Testnet** (chain `9372`, `https://rpc.testnet.oasys.games`) is real, free,
+and reachable, which makes it the practical target for demonstrating genuine
+on-chain settlement. Fund the deployer from the Oasys faucet first.
+
+A **Verse layer** is an OP-Stack L2 in the same ecosystem and publishes its own chain
+id, RPC, and explorer. Substitute those three values; nothing else changes. The
+`20197` that previously appeared in this repo's defaults was a placeholder, not a
+real network — do not use it.
 
 ---
 

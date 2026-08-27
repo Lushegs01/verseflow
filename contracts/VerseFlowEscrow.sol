@@ -89,7 +89,7 @@ contract VerseFlowEscrow {
         uint256 indexed milestoneIndex,
         address indexed provider,
         uint256 amount,
-        bool partial
+        bool isPartial
     );
     event EvidenceAnchored(
         bytes32 indexed agreementId,
@@ -261,10 +261,10 @@ contract VerseFlowEscrow {
         _milestoneReleased[agreementId][milestoneIndex] = already + amount;
         a.totalReleased += amount;
 
-        bool partial = (already + amount) < allocated;
+        bool isPartial = (already + amount) < allocated;
         _payout(a.token, a.provider, amount);
 
-        emit MilestoneReleased(agreementId, milestoneIndex, a.provider, amount, partial);
+        emit MilestoneReleased(agreementId, milestoneIndex, a.provider, amount, isPartial);
         _settleIfComplete(agreementId, a);
     }
 
@@ -370,10 +370,17 @@ contract VerseFlowEscrow {
     {
         Agreement storage a = _agreements[agreementId];
         if (a.state == AgreementState.None) revert NotFound();
-        return (
-            a.client, a.provider, a.token, a.totalAmount, a.totalReleased,
-            a.termsHash, a.createdAt, a.state, _milestoneDisputed[agreementId]
-        );
+        // Assigned individually rather than returned as a 9-tuple: the tuple form holds
+        // every value live at once and overflows the stack under legacy codegen.
+        client = a.client;
+        provider = a.provider;
+        token = a.token;
+        totalAmount = a.totalAmount;
+        totalReleased = a.totalReleased;
+        termsHash = a.termsHash;
+        createdAt = a.createdAt;
+        state = a.state;
+        disputed = _milestoneDisputed[agreementId];
     }
 
     function getMilestones(bytes32 agreementId)
