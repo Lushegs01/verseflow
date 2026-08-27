@@ -16,6 +16,21 @@ Built for the **Verse Buildathon — Payments & Merchant Solutions**.
 
 ---
 
+## Try it live
+
+**[verseflow-five.vercel.app](https://verseflow-five.vercel.app)** — no wallet, no signup.
+
+| | |
+|---|---|
+| **Client** | [Sign in as Northstar Coffee](https://verseflow-five.vercel.app/api/demo/start?persona=client) — a milestone waiting for review, $1,500 ready to release |
+| **Provider** | [Sign in as Alex Morgan](https://verseflow-five.vercel.app/api/demo/start?persona=provider) — 23 completed contracts and a live reputation |
+| **Operations** | [Sign in as Operations](https://verseflow-five.vercel.app/api/demo/start?persona=operator) — audit log, dispute queue, reconciliation |
+
+Running on Vercel with Neon Postgres. Settlement uses the local simulation, which is
+labelled as such on every screen.
+
+---
+
 ## Run it
 
 Requires **Node 20+**. Nothing else — no database server, no API keys, no wallet.

@@ -1,5 +1,8 @@
 # Deploying to Vercel
 
+> **Live:** https://verseflow-five.vercel.app
+> Vercel project `worldwide1/verseflow`, Neon Postgres via the Vercel Marketplace.
+
 VerseFlow runs on Vercel with a managed Postgres. This takes about ten minutes.
 
 ---
@@ -28,11 +31,19 @@ DATABASE_URL unset  -> PGlite      -> embedded, in-process (local, CI)
 
 Any Postgres works. Two easy options:
 
-**Vercel Postgres** — Storage → Create → Postgres. Vercel injects `DATABASE_URL`
-into the project automatically, and you can skip step 3's database variable.
+**Neon via the Vercel Marketplace** — Vercel retired its first-party Postgres, and
+Neon is the successor; "Vercel Postgres" now means this. Provision it with:
 
-**Neon** — create a project at neon.tech and copy the **pooled** connection
-string (it has `-pooler` in the host).
+```bash
+vercel integration add neon
+```
+
+That injects `DATABASE_URL` into every environment, already pointing at the
+**pooled** endpoint. Accepting Neon's terms needs a one-time browser step, which
+the CLI prints a link for.
+
+**Any other Postgres** — create it and copy the **pooled** connection string
+(the host contains `-pooler`).
 
 > Use the **pooled** string. Each serverless instance opens its own connection, and
 > a direct connection string will exhaust the server's connection limit under load.
