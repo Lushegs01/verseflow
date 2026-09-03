@@ -4,8 +4,12 @@
    VerseFlow design system
 
    Direction: premium fintech + editorial SaaS. Warm paper, deep ink, one
-   structural accent, and colour reserved for money and state. Restraint is the
-   point -- the interface should read as precise and trustworthy, not decorated.
+   structural accent, and colour reserved for money and state.
+
+   Depth is the second language. Surfaces are lit rather than drawn: a tinted
+   ambient shadow, a one-pixel top highlight, and a barely-there surface
+   gradient give every panel a physical edge. That is what separates a product
+   that looks expensive from one that looks flat -- not more colour.
    ========================================================================== */
 
 @theme {
@@ -118,6 +122,11 @@
   --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-pulse-ring: pulse-ring 2s var(--ease-out-expo) infinite;
   --animate-draw: draw 1.4s var(--ease-out-expo) forwards;
+  --animate-sheen: sheen 0.85s var(--ease-out-expo);
+  --animate-drift: drift 22s ease-in-out infinite;
+  --animate-drift-slow: drift-slow 30s ease-in-out infinite;
+  --animate-pan: pan 8s linear infinite;
+  --animate-breathe: breathe 5s ease-in-out infinite;
 }
 
 /* ==========================================================================
@@ -130,6 +139,11 @@
   --bg-raised: #FFFFFF;
   --bg-sunken: var(--color-paper-200);
   --bg-inset: var(--color-paper-50);
+
+  /* A whisper of brand light behind the page. Never readable as colour. */
+  --bg-ambient:
+    radial-gradient(110% 50% at 50% -8%, rgb(29 91 255 / 0.05), transparent 62%),
+    radial-gradient(70% 40% at 92% 4%, rgb(109 74 255 / 0.035), transparent 68%);
 
   --fg: var(--color-paper-950);
   --fg-muted: var(--color-paper-700);
@@ -169,52 +183,96 @@
 
   --ring: var(--color-verse-500);
 
-  --shadow-xs: 0 1px 2px rgb(19 18 17 / 0.05);
-  --shadow-sm: 0 1px 3px rgb(19 18 17 / 0.06), 0 1px 2px rgb(19 18 17 / 0.04);
-  --shadow-md: 0 4px 12px -2px rgb(19 18 17 / 0.08), 0 2px 4px -2px rgb(19 18 17 / 0.04);
-  --shadow-lg: 0 12px 32px -8px rgb(19 18 17 / 0.12), 0 4px 8px -4px rgb(19 18 17 / 0.06);
-  --shadow-xl: 0 24px 56px -12px rgb(19 18 17 / 0.18), 0 8px 16px -8px rgb(19 18 17 / 0.08);
+  /* --- Material --------------------------------------------------------- */
+  /* The one-pixel light catch along a surface's top edge. */
+  --surface-highlight: rgb(255 255 255 / 0.9);
+  /* A near-invisible top-to-bottom gradient so panels are lit, not painted. */
+  --surface-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.75), rgb(255 255 255 / 0) 42%);
+  /* Translucent chrome (sticky headers, floating panels). */
+  --glass: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.6);
+  /* Scrim behind modals. */
+  --scrim: rgb(19 18 17 / 0.32);
+
+  /* The ink primary button: a top-lit face with a bright edge. */
+  --primary-gloss: linear-gradient(180deg, rgb(255 255 255 / 0.17), rgb(255 255 255 / 0) 62%);
+  --primary-edge: rgb(255 255 255 / 0.2);
+
+  /* Shadows are two-part: a tight contact shadow plus a wide ambient one,
+     both tinted toward the ink colour rather than neutral black. */
+  --shadow-xs:
+    0 1px 1px rgb(30 29 26 / 0.04),
+    0 1px 2px -1px rgb(30 29 26 / 0.06);
+  --shadow-sm:
+    0 1px 1px rgb(30 29 26 / 0.04),
+    0 2px 5px -2px rgb(30 29 26 / 0.07),
+    0 4px 12px -6px rgb(30 29 26 / 0.05);
+  --shadow-md:
+    0 1px 2px rgb(30 29 26 / 0.04),
+    0 6px 14px -5px rgb(30 29 26 / 0.09),
+    0 12px 28px -12px rgb(30 29 26 / 0.08);
+  --shadow-lg:
+    0 1px 2px rgb(30 29 26 / 0.04),
+    0 14px 32px -10px rgb(30 29 26 / 0.13),
+    0 28px 60px -20px rgb(30 29 26 / 0.12);
+  --shadow-xl:
+    0 2px 4px rgb(30 29 26 / 0.04),
+    0 28px 60px -16px rgb(30 29 26 / 0.18),
+    0 56px 110px -32px rgb(30 29 26 / 0.16);
+
+  /* Coloured glow, used only where money or brand is the subject. */
+  --glow-accent: 0 8px 28px -10px rgb(29 91 255 / 0.45);
+  --glow-settle: 0 8px 28px -10px rgb(15 157 107 / 0.4);
+  --glow-locked: 0 8px 28px -10px rgb(109 74 255 / 0.4);
+  --glow-primary: 0 10px 30px -12px rgb(19 18 17 / 0.5);
+  --glow-danger: 0 8px 28px -10px rgb(220 38 38 / 0.42);
 
   --header-h: 3.5rem;
   --bottom-nav-h: 4rem;
 }
 
 .dark {
-  --bg: #0C0C0B;
-  --bg-raised: #161514;
-  --bg-sunken: #090908;
-  --bg-inset: #1C1B19;
+  /* Deepened and cooled a half-step so the blue accent has somewhere to sit,
+     with more separation between layers than a single near-black allows. */
+  --bg: #0A0A0C;
+  --bg-raised: #131316;
+  --bg-sunken: #060608;
+  --bg-inset: #1A1A1E;
+
+  --bg-ambient:
+    radial-gradient(115% 55% at 50% -10%, rgb(29 91 255 / 0.13), transparent 60%),
+    radial-gradient(75% 45% at 88% 2%, rgb(109 74 255 / 0.09), transparent 66%);
 
   --fg: var(--color-paper-100);
   --fg-muted: var(--color-paper-400);
   --fg-subtle: var(--color-paper-500);
-  --fg-faint: var(--color-paper-600);
+  --fg-faint: #7C7A75;
   --fg-inverse: var(--color-paper-950);
 
-  --border: #2A2926;
-  --border-strong: #3A3833;
-  --border-subtle: #201F1D;
+  --border: #27272C;
+  --border-strong: #3A3A42;
+  --border-subtle: #1D1D21;
 
   --accent: var(--color-verse-400);
   --accent-fg: #06122E;
-  --accent-soft: rgb(29 91 255 / 0.12);
-  --accent-border: rgb(96 144 250 / 0.3);
+  --accent-soft: rgb(29 91 255 / 0.14);
+  --accent-border: rgb(96 144 250 / 0.32);
 
   --settle: var(--color-settle-400);
-  --settle-soft: rgb(15 157 107 / 0.14);
-  --settle-border: rgb(52 211 153 / 0.28);
+  --settle-soft: rgb(15 157 107 / 0.15);
+  --settle-border: rgb(52 211 153 / 0.3);
 
   --locked: var(--color-locked-400);
-  --locked-soft: rgb(109 74 255 / 0.16);
-  --locked-border: rgb(167 139 250 / 0.3);
+  --locked-soft: rgb(109 74 255 / 0.17);
+  --locked-border: rgb(167 139 250 / 0.32);
 
   --attn: var(--color-attn-400);
-  --attn-soft: rgb(217 119 6 / 0.16);
-  --attn-border: rgb(251 191 36 / 0.3);
+  --attn-soft: rgb(217 119 6 / 0.17);
+  --attn-border: rgb(251 191 36 / 0.32);
 
   --danger: var(--color-danger-400);
-  --danger-soft: rgb(220 38 38 / 0.16);
-  --danger-border: rgb(248 113 113 / 0.3);
+  --danger-soft: rgb(220 38 38 / 0.17);
+  --danger-border: rgb(248 113 113 / 0.32);
 
   --primary: var(--color-paper-100);
   --primary-fg: var(--color-paper-950);
@@ -222,11 +280,36 @@
 
   --ring: var(--color-verse-400);
 
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
-  --shadow-xl: 0 24px 56px -12px rgb(0 0 0 / 0.7), 0 8px 16px -8px rgb(0 0 0 / 0.5);
+  /* In the dark the highlight does the work the shadow cannot. */
+  --surface-highlight: rgb(255 255 255 / 0.07);
+  --surface-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0) 45%);
+  --glass: rgb(19 19 22 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.08);
+  --scrim: rgb(3 3 5 / 0.62);
+
+  /* The primary button is near-white here, so it is lit from beneath instead. */
+  --primary-gloss: linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 70%);
+  --primary-edge: transparent;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.45);
+  --shadow-sm:
+    0 1px 2px rgb(0 0 0 / 0.5),
+    0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-md:
+    0 2px 4px rgb(0 0 0 / 0.45),
+    0 8px 20px -6px rgb(0 0 0 / 0.55);
+  --shadow-lg:
+    0 2px 4px rgb(0 0 0 / 0.45),
+    0 18px 40px -12px rgb(0 0 0 / 0.65);
+  --shadow-xl:
+    0 4px 8px rgb(0 0 0 / 0.45),
+    0 36px 76px -20px rgb(0 0 0 / 0.75);
+
+  --glow-accent: 0 10px 34px -10px rgb(96 144 250 / 0.5);
+  --glow-settle: 0 10px 34px -10px rgb(52 211 153 / 0.42);
+  --glow-locked: 0 10px 34px -10px rgb(167 139 250 / 0.45);
+  --glow-primary: 0 10px 30px -12px rgb(0 0 0 / 0.8);
+  --glow-danger: 0 10px 34px -10px rgb(248 113 113 / 0.42);
 }
 
 /* Expose semantic tokens as Tailwind utilities (bg-surface, text-muted, ...). */
@@ -266,6 +349,10 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
+  --shadow-glow: var(--glow-accent);
+  --shadow-glow-settle: var(--glow-settle);
+  --shadow-glow-locked: var(--glow-locked);
+  --shadow-glow-primary: var(--glow-primary);
 }
 
 /* ==========================================================================
@@ -286,6 +373,9 @@
 
   body {
     background-color: var(--bg);
+    background-image: var(--bg-ambient);
+    background-repeat: no-repeat;
+    background-size: 100% 100vh;
     color: var(--fg);
     font-family: var(--font-sans);
     font-size: var(--text-base);
@@ -356,6 +446,54 @@
 }
 
 /* ==========================================================================
+   Material
+
+   The handful of classes that make a surface read as lit rather than drawn.
+   Declared with `@utility` rather than inside a layer so they carry variants:
+   `hover:raised-4`, `dark:glass`, `lg:panel` all work.
+   ========================================================================== */
+
+/* A one-pixel light catch along the top edge. */
+@utility edge-light {
+  box-shadow: inset 0 1px 0 0 var(--surface-highlight);
+}
+
+/* A near-invisible gradient wash, so a panel has a top and a bottom. */
+@utility lit {
+  background-image: var(--surface-sheen);
+}
+
+/* The common raised surface: fill, sheen, hairline, elevation. */
+@utility panel {
+  background-color: var(--bg-raised);
+  background-image: var(--surface-sheen);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 0 var(--surface-highlight);
+}
+
+/* Elevation steps. Each pairs its shadow with the top highlight, because a
+   shadow with no matching light source is what makes flat UI look cheap.
+   Prefer these over a bare `shadow-*` on anything sitting above the page. */
+@utility raised-1 { box-shadow: var(--shadow-xs), inset 0 1px 0 0 var(--surface-highlight); }
+@utility raised-2 { box-shadow: var(--shadow-sm), inset 0 1px 0 0 var(--surface-highlight); }
+@utility raised-3 { box-shadow: var(--shadow-md), inset 0 1px 0 0 var(--surface-highlight); }
+@utility raised-4 { box-shadow: var(--shadow-lg), inset 0 1px 0 0 var(--surface-highlight); }
+@utility raised-5 { box-shadow: var(--shadow-xl), inset 0 1px 0 0 var(--surface-highlight); }
+
+/* Coloured lift, reserved for surfaces whose subject is money or brand. */
+@utility lift-accent { box-shadow: var(--shadow-md), var(--glow-accent), inset 0 1px 0 0 var(--surface-highlight); }
+@utility lift-settle { box-shadow: var(--shadow-md), var(--glow-settle), inset 0 1px 0 0 var(--surface-highlight); }
+@utility lift-locked { box-shadow: var(--shadow-md), var(--glow-locked), inset 0 1px 0 0 var(--surface-highlight); }
+@utility lift-danger { box-shadow: var(--shadow-md), var(--glow-danger), inset 0 1px 0 0 var(--surface-highlight); }
+
+/* Translucent chrome: sticky headers, floating panels, toasts. */
+@utility glass {
+  background-color: var(--glass);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+
+/* ==========================================================================
    Utilities
    ========================================================================== */
 
@@ -380,6 +518,102 @@
     box-shadow: inset 0 0 0 1px var(--border);
   }
 
+  /* A gradient hairline border, drawn with a mask so the fill stays free. */
+  .border-gradient {
+    position: relative;
+  }
+  .border-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      160deg,
+      color-mix(in oklab, var(--accent) 55%, transparent),
+      color-mix(in oklab, var(--locked) 35%, transparent) 42%,
+      transparent 70%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* A gloss that sweeps once across a control on hover. */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      105deg,
+      transparent 32%,
+      rgb(255 255 255 / 0.22) 46%,
+      rgb(255 255 255 / 0.05) 54%,
+      transparent 68%
+    );
+    transform: translateX(-130%);
+  }
+  .sheen:hover::after,
+  .sheen:focus-visible::after {
+    animation: var(--animate-sheen);
+  }
+
+  /* Ambient light behind a hero or a feature panel. Two slow-drifting blobs,
+     blurred past recognition -- it reads as light, never as shape. */
+  .aurora {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .aurora::before,
+  .aurora::after {
+    content: "";
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(72px);
+    opacity: 0.5;
+  }
+  .aurora::before {
+    width: 48rem;
+    height: 30rem;
+    top: -14rem;
+    left: -10rem;
+    background: radial-gradient(closest-side, color-mix(in oklab, var(--accent) 42%, transparent), transparent);
+    animation: var(--animate-drift);
+  }
+  .aurora::after {
+    width: 40rem;
+    height: 26rem;
+    top: -8rem;
+    right: -12rem;
+    background: radial-gradient(closest-side, color-mix(in oklab, var(--locked) 38%, transparent), transparent);
+    animation: var(--animate-drift-slow);
+  }
+  .dark .aurora::before,
+  .dark .aurora::after { opacity: 0.42; }
+
+  /* Film grain. Its real job is to stop wide gradients from banding. */
+  .noise::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dark .noise::before { opacity: 0.05; }
+
+  /* The dotted field behind the closing panel. */
   .grain {
     position: relative;
   }
@@ -394,8 +628,28 @@
     mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
   }
 
+  /* A faint engineering grid, for surfaces that should read as instrumentation. */
+  .grid-field {
+    background-image:
+      linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, #000 10%, transparent 78%);
+  }
+
+  /* --- Text -------------------------------------------------------------- */
+
   .text-gradient {
-    background: linear-gradient(135deg, var(--fg) 30%, var(--fg-subtle) 100%);
+    background: linear-gradient(135deg, var(--fg) 28%, color-mix(in oklab, var(--fg) 55%, var(--bg)) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Brand-tinted, for the one phrase per page that carries the promise. */
+  .text-brand-gradient {
+    background: linear-gradient(112deg, var(--accent) 0%, var(--locked) 55%, var(--accent) 100%);
+    background-size: 200% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -419,6 +673,41 @@
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
   .h-bottom-nav { height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ==========================================================================
+   Component surfaces
+
+   Button and control faces, expressed once here rather than as a long arbitrary
+   shadow value repeated at every call site. Utilities still win over these, so
+   a component can override any part of them inline.
+   ========================================================================== */
+
+@layer components {
+  /* The decisive action: ink on light, light on ink. */
+  .face-primary {
+    background-color: var(--primary);
+    background-image: var(--primary-gloss);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 0 var(--primary-edge);
+  }
+  .face-primary:hover:not(:disabled) {
+    box-shadow: var(--glow-primary), inset 0 1px 0 0 var(--primary-edge);
+  }
+
+  /* Saturated actions: settle green, danger red. Lit from above in both themes. */
+  .face-tint {
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0) 62%);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 0 rgb(255 255 255 / 0.3);
+  }
+
+  /* Quiet raised action, and the resting state of most inputs. */
+  .face-quiet {
+    background-image: var(--surface-sheen);
+    box-shadow: var(--shadow-xs), inset 0 1px 0 0 var(--surface-highlight);
+  }
+  .face-quiet:hover:not(:disabled) {
+    box-shadow: var(--shadow-sm), inset 0 1px 0 0 var(--surface-highlight);
+  }
 }
 
 /* ==========================================================================
@@ -456,6 +745,31 @@
   to   { opacity: 1; transform: none; }
 }
 
+@keyframes sheen {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(130%); }
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(4rem, 2rem, 0) scale(1.12); }
+}
+
+@keyframes drift-slow {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50%      { transform: translate3d(-3.5rem, 2.5rem, 0) scale(0.95); }
+}
+
+@keyframes pan {
+  from { background-position: 0% 50%; }
+  to   { background-position: 200% 50%; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
 /* Skeleton loading surface. */
 .skeleton {
   background: linear-gradient(
@@ -480,7 +794,8 @@
 
    Motion in VerseFlow communicates state changes, so it is reduced rather than
    removed: transitions collapse to near-instant, but nothing that conveys
-   meaning simply disappears.
+   meaning simply disappears. Purely ambient motion -- drifting light, sweeping
+   gloss -- is the exception and stops entirely.
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -493,6 +808,9 @@
     scroll-behavior: auto !important;
   }
   .skeleton { animation: none; background: var(--bg-sunken); }
+  .aurora::before,
+  .aurora::after { animation: none !important; }
+  .sheen::after { display: none; }
 }
 
 /* High-contrast preference: strengthen borders rather than change hues. */
@@ -501,14 +819,18 @@
     --border: var(--color-paper-500);
     --border-strong: var(--color-paper-700);
     --fg-subtle: var(--color-paper-800);
+    --surface-sheen: none;
   }
   .dark {
-    --border: #4A473F;
-    --border-strong: #6A665C;
+    --border: #55535A;
+    --border-strong: #76737E;
+    --surface-sheen: none;
   }
+  .aurora { display: none; }
 }
 
 @media print {
   .no-print { display: none !important; }
-  body { background: #fff; color: #000; }
+  body { background: #fff; color: #000; background-image: none; }
+  .aurora, .noise::before, .grain::after { display: none !important; }
 }

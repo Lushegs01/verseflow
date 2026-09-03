@@ -21,28 +21,42 @@ export function cn(...inputs: ClassValue[]) {
 // Button
 // ---------------------------------------------------------------------------
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "settle" | "outline";
+type ButtonVariant =
+  | "primary" | "secondary" | "ghost" | "danger" | "settle" | "outline" | "accent";
 type ButtonSize = "sm" | "md" | "lg";
 
+/**
+ * Filled variants get a lit face (`face-*`) and a gloss sweep (`sheen`); quiet
+ * ones get neither, because a highlight on a transparent control reads as a
+ * rendering artefact rather than as light.
+ */
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-primary text-primary-fg hover:opacity-90 active:opacity-100 shadow-xs",
+    "face-primary sheen text-primary-fg",
+  accent:
+    "face-tint sheen bg-accent text-accent-fg hover:lift-accent",
   secondary:
-    "bg-raised text-fg border border-line hover:bg-inset hover:border-line-strong shadow-xs",
+    "face-quiet bg-raised text-fg border border-line hover:border-line-strong",
   outline:
-    "bg-transparent text-fg border border-line-strong hover:bg-raised",
+    "bg-transparent text-fg border border-line-strong hover:bg-raised hover:border-line-strong",
   ghost:
     "bg-transparent text-muted hover:bg-inset hover:text-fg",
   danger:
-    "bg-danger text-white hover:opacity-90 shadow-xs",
+    "face-tint sheen bg-danger text-white hover:lift-danger",
   settle:
-    "bg-settle text-white hover:opacity-90 shadow-xs",
+    "face-tint sheen bg-settle text-white hover:lift-settle",
+};
+
+/** Quiet variants sit flat on the page; filled ones lift a hair on hover. */
+const LIFTS_ON_HOVER: Record<ButtonVariant, boolean> = {
+  primary: true, accent: true, secondary: true, outline: false,
+  ghost: false, danger: true, settle: true,
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
   sm: "h-8 px-3 text-xs gap-1.5 rounded-md",
   md: "h-10 px-4 text-sm gap-2 rounded-lg",
-  lg: "h-12 px-6 text-base gap-2 rounded-lg",
+  lg: "h-12 px-6 text-base gap-2 rounded-xl",
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -79,9 +93,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       aria-busy={loading || undefined}
       className={cn(
         "relative inline-flex select-none items-center justify-center font-medium",
-        "transition-[opacity,background-color,border-color,transform] duration-150",
-        "disabled:pointer-events-none disabled:opacity-45",
-        "active:scale-[0.985]",
+        "transition-[background-color,border-color,box-shadow,transform,opacity]",
+        "duration-200 ease-[var(--ease-out-expo)]",
+        "disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none",
+        // Press is a translate rather than a scale: text stays pin-sharp.
+        "active:translate-y-px active:duration-75",
+        LIFTS_ON_HOVER[variant] && "hover:-translate-y-px",
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
         fullWidth && "w-full",
@@ -112,14 +129,24 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
 export function Card({
   className,
   interactive,
+  glow,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & { interactive?: boolean }) {
+}: React.HTMLAttributes<HTMLDivElement> & {
+  interactive?: boolean;
+  /** Coloured lift, for the one card on a screen that is about money. */
+  glow?: "accent" | "settle" | "locked";
+}) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-line bg-raised",
-        interactive &&
-          "transition-[border-color,box-shadow,transform] duration-200 hover:border-line-strong hover:shadow-md",
+        "relative rounded-xl border border-line bg-raised lit",
+        glow === "accent" ? "lift-accent" :
+        glow === "settle" ? "lift-settle" :
+        glow === "locked" ? "lift-locked" : "raised-2",
+        interactive && [
+          "transition-[border-color,box-shadow,transform] duration-300 ease-[var(--ease-out-expo)]",
+          "hover:-translate-y-0.5 hover:border-line-strong hover:raised-4",
+        ],
         className,
       )}
       {...props}
@@ -176,7 +203,7 @@ export function Badge({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5",
-        "text-2xs font-medium tracking-tight",
+        "text-2xs font-medium tracking-tight edge-light",
         BADGE_TONES[tone],
         className,
       )}
@@ -202,12 +229,24 @@ export function StatusDot({ tone = "neutral", pulse }: { tone?: BadgeTone; pulse
     danger: "bg-danger",
     outline: "bg-faint",
   };
+  // A soft halo in the dot's own colour: the state reads at a glance without
+  // the dot having to get bigger or louder.
+  const halo: Record<BadgeTone, string> = {
+    neutral: "shadow-[0_0_0_3px_color-mix(in_oklab,var(--fg-faint)_18%,transparent)]",
+    accent: "shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_22%,transparent)]",
+    settle: "shadow-[0_0_0_3px_color-mix(in_oklab,var(--settle)_22%,transparent)]",
+    locked: "shadow-[0_0_0_3px_color-mix(in_oklab,var(--locked)_22%,transparent)]",
+    attn: "shadow-[0_0_0_3px_color-mix(in_oklab,var(--attn)_22%,transparent)]",
+    danger: "shadow-[0_0_0_3px_color-mix(in_oklab,var(--danger)_22%,transparent)]",
+    outline: "shadow-[0_0_0_3px_color-mix(in_oklab,var(--fg-faint)_18%,transparent)]",
+  };
+
   return (
     <span className="relative flex size-2 shrink-0" aria-hidden>
       {pulse ? (
         <span className={cn("absolute inline-flex size-full animate-ping rounded-full opacity-60", color[tone])} />
       ) : null}
-      <span className={cn("relative inline-flex size-2 rounded-full", color[tone])} />
+      <span className={cn("relative inline-flex size-2 rounded-full", color[tone], halo[tone])} />
     </span>
   );
 }
@@ -268,14 +307,22 @@ export function Field({
   );
 }
 
+/**
+ * Inputs are sunken rather than raised: an inner shadow at the top edge reads
+ * as a well the text sits inside, which is the opposite treatment to a button
+ * and makes the two instantly distinguishable at a glance.
+ */
 const CONTROL_BASE =
   "w-full rounded-lg border border-line bg-inset px-3 text-sm text-fg " +
-  "transition-[border-color,box-shadow] duration-150 " +
+  "shadow-[inset_0_1px_2px_rgb(19_18_17/0.05)] dark:shadow-[inset_0_1px_2px_rgb(0_0_0/0.35)] " +
+  "transition-[border-color,box-shadow,background-color] duration-200 ease-[var(--ease-out-expo)] " +
   "placeholder:text-faint " +
   "hover:border-line-strong " +
-  "focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 " +
+  "focus:border-accent focus:bg-raised focus:outline-none " +
+  "focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_18%,transparent)] " +
   "disabled:cursor-not-allowed disabled:opacity-50 " +
-  "aria-[invalid=true]:border-danger aria-[invalid=true]:ring-danger/20";
+  "aria-[invalid=true]:border-danger " +
+  "aria-[invalid=true]:focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--danger)_18%,transparent)]";
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...props }, ref) {
@@ -362,14 +409,18 @@ export function Toggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200",
+          "relative h-6 w-11 shrink-0 rounded-full transition-all duration-300 ease-[var(--ease-out-expo)]",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          checked ? "bg-accent" : "bg-line-strong",
+          checked
+            ? "bg-accent shadow-[inset_0_1px_2px_rgb(19_18_17/0.14),var(--glow-accent)]"
+            : "bg-line-strong shadow-[inset_0_1px_2px_rgb(19_18_17/0.14)]",
         )}
       >
         <span
           className={cn(
-            "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+            "absolute top-0.5 size-5 rounded-full bg-white transition-transform duration-300",
+            "shadow-[0_1px_2px_rgb(19_18_17/0.3),0_0_0_0.5px_rgb(19_18_17/0.06)]",
+            "ease-[var(--ease-spring)]",
             checked ? "translate-x-[1.375rem]" : "translate-x-0.5",
           )}
         />
@@ -409,7 +460,7 @@ export function Alert({
   return (
     <div
       role={tone === "danger" ? "alert" : "status"}
-      className={cn("flex items-start gap-3 rounded-lg border p-3.5", tones[tone], className)}
+      className={cn("flex items-start gap-3 rounded-lg border p-3.5 edge-light", tones[tone], className)}
     >
       <span
         className={cn(
@@ -449,8 +500,15 @@ export function EmptyState({
   return (
     <div className={cn("flex flex-col items-center justify-center px-6 py-14 text-center", className)}>
       {icon ? (
-        <div className="mb-4 flex size-12 items-center justify-center rounded-xl border border-line bg-inset text-subtle">
-          {icon}
+        <div className="relative mb-4">
+          {/* A soft bloom behind the glyph, so an empty screen still feels composed. */}
+          <span
+            className="absolute -inset-4 rounded-full bg-accent/8 blur-xl"
+            aria-hidden
+          />
+          <div className="relative flex size-12 items-center justify-center rounded-xl border border-line bg-inset text-subtle raised-1 lit">
+            {icon}
+          </div>
         </div>
       ) : null}
       <p className="text-base font-medium">{title}</p>
@@ -479,6 +537,14 @@ export function Progress({
   const bg = {
     accent: "bg-accent", settle: "bg-settle", locked: "bg-locked", attn: "bg-attn",
   }[tone];
+  // Inner top highlight plus an outer bloom, in one declaration: `cn` collapses
+  // repeated shadow utilities down to the last one.
+  const fillShadow = {
+    accent: "shadow-[inset_0_1px_0_0_rgb(255_255_255/0.35),0_0_10px_-2px_var(--accent)]",
+    settle: "shadow-[inset_0_1px_0_0_rgb(255_255_255/0.35),0_0_10px_-2px_var(--settle)]",
+    locked: "shadow-[inset_0_1px_0_0_rgb(255_255_255/0.35),0_0_10px_-2px_var(--locked)]",
+    attn: "shadow-[inset_0_1px_0_0_rgb(255_255_255/0.35),0_0_10px_-2px_var(--attn)]",
+  }[tone];
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -494,10 +560,16 @@ export function Progress({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={label}
-        className="h-1.5 w-full overflow-hidden rounded-full bg-sunken"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-sunken shadow-[inset_0_1px_2px_rgb(19_18_17/0.08)]"
       >
+        {/* The fill is lit along its own top edge and carries a faint glow, so a
+            bar at 80% reads as a charged thing rather than a painted rectangle. */}
         <div
-          className={cn("h-full rounded-full transition-[width] duration-700 ease-[var(--ease-out-expo)]", bg)}
+          className={cn(
+            "h-full rounded-full transition-[width] duration-700 ease-[var(--ease-out-expo)]",
+            bg,
+            fillShadow,
+          )}
           style={{ width: `${clamped}%` }}
         />
       </div>
@@ -566,7 +638,8 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
-        className="absolute inset-0 bg-paper-950/40 backdrop-blur-[2px] animate-[fade_0.2s_ease-out]"
+        className="absolute inset-0 backdrop-blur-[3px] animate-[fade_0.2s_ease-out]"
+        style={{ backgroundColor: "var(--scrim)" }}
         onClick={onClose}
         aria-hidden
       />
@@ -576,7 +649,8 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         className={cn(
-          "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden bg-raised shadow-xl",
+          "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden bg-raised lit",
+          "border border-line raised-5",
           "rounded-t-2xl sm:rounded-2xl",
           "animate-[rise_0.28s_var(--ease-out-expo)]",
           widths[size],
@@ -639,12 +713,22 @@ export function Tabs({
           >
             {tab.label}
             {typeof tab.count === "number" ? (
-              <span className="ml-1.5 rounded-full bg-inset px-1.5 py-0.5 text-2xs tabular">
+              <span
+                className={cn(
+                  "ml-1.5 rounded-full border px-1.5 py-0.5 text-2xs tabular transition-colors",
+                  selected ? "border-line bg-inset text-fg" : "border-transparent bg-inset text-subtle",
+                )}
+              >
                 {tab.count}
               </span>
             ) : null}
             {selected ? (
-              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-fg" />
+              // Ink underline with a matching bloom -- the indicator looks lit
+              // rather than drawn, and lines up with the elevation language.
+              <span
+                className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-fg shadow-[0_0_8px_-1px_var(--fg)]"
+                aria-hidden
+              />
             ) : null}
           </button>
         );
@@ -695,7 +779,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={m.id}
             className={cn(
-              "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-raised p-3.5 shadow-lg",
+              "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border p-3.5",
+              "glass raised-4",
               "animate-[rise_0.3s_var(--ease-out-expo)]",
               m.tone === "danger" && "border-danger-border",
               m.tone === "settle" && "border-settle-border",
@@ -757,17 +842,91 @@ export function Avatar({
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
 
+  const base = color ?? "var(--accent)";
+
   return (
     <span
       className={cn(
+        // A slight gradient plus a top highlight turns a flat colour disc into
+        // something that catches light with the rest of the interface.
         "inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white",
+        "shadow-[inset_0_1px_0_0_rgb(255_255_255/0.3),inset_0_0_0_1px_rgb(0_0_0/0.06),0_1px_2px_rgb(19_18_17/0.18)]",
         sizes[size],
         className,
       )}
-      style={{ backgroundColor: color ?? "var(--accent)" }}
+      style={{
+        backgroundImage: `linear-gradient(145deg, color-mix(in oklab, ${base} 82%, white), ${base} 62%, color-mix(in oklab, ${base} 88%, black))`,
+      }}
       aria-hidden
     >
       {initials}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Brand
+// ---------------------------------------------------------------------------
+
+/**
+ * The VerseFlow mark: a chevron whose left arm is solid and whose right arm is
+ * held back at partial opacity -- the product's whole model in one glyph, value
+ * that is half released and half still in escrow.
+ */
+export function BrandMark({ size = 28, className }: { size?: number; className?: string }) {
+  return (
+    <span
+      className={cn("relative inline-flex shrink-0 items-center justify-center text-white", className)}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.3),
+        backgroundImage:
+          "linear-gradient(145deg, var(--color-verse-400) 0%, var(--color-verse-500) 42%, var(--color-locked-500) 100%)",
+        boxShadow:
+          "inset 0 1px 0 0 rgb(255 255 255 / 0.38), inset 0 0 0 1px rgb(0 0 0 / 0.08), var(--glow-accent)",
+      }}
+      aria-hidden
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        style={{ width: Math.round(size * 0.6), height: Math.round(size * 0.6) }}
+      >
+        <path
+          d="M4.9 7.1 12 18.6 19.1 7.1"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.45"
+        />
+        <path
+          d="M4.9 7.1 12 18.6"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
+/** Mark plus wordmark. The lockup used in every header and footer. */
+export function BrandLockup({
+  size = 28, className, wordmarkClassName,
+}: {
+  size?: number;
+  className?: string;
+  wordmarkClassName?: string;
+}) {
+  return (
+    <span className={cn("inline-flex items-center gap-2.5", className)}>
+      <BrandMark size={size} />
+      <span className={cn("font-display text-xl leading-none tracking-tight", wordmarkClassName)}>
+        VerseFlow
+      </span>
     </span>
   );
 }
