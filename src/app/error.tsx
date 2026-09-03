@@ -26,7 +26,7 @@ export default function GlobalError({
       <span className="flex size-12 items-center justify-center rounded-xl border border-danger-border bg-danger-soft text-danger">
         <AlertCircle className="size-5" aria-hidden />
       </span>
-      <h1 className="mt-4 font-display text-3xl">Something went wrong.</h1>
+      <h1 className="mt-4 text-gradient font-display text-3xl">Something went wrong.</h1>
       <p className="mt-2 max-w-sm text-sm text-muted">
         The action was not applied and nothing was charged. Your funds and agreements are
         unaffected.
@@ -38,7 +38,7 @@ export default function GlobalError({
         <button
           type="button"
           onClick={reset}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+          className="inline-flex h-10 items-center gap-2 rounded-lg face-primary sheen px-4 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
         >
           <RotateCcw className="size-3.5" aria-hidden />
           Try again

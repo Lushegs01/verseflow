@@ -16,7 +16,7 @@ import {
   LayoutDashboard, FileText, TrendingUp, BarChart3, Settings, Shield,
   Plus, Search, Bell, LogOut, ChevronDown, Wallet, RotateCcw, Check,
 } from "lucide-react";
-import { cn, Avatar, Badge, Button, useToast } from "@/components/ui";
+import { cn, Avatar, Badge, Button, BrandLockup, BrandMark, useToast } from "@/components/ui";
 import { ThemeToggle } from "./theme-toggle";
 import { CommandPalette } from "./command-palette";
 import { NotificationPanel } from "./notifications";
@@ -88,8 +88,21 @@ export function AppShell({
       <div className="flex">
         {/* ---------- Desktop sidebar ---------- */}
         <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-raised lg:flex">
-          <div className="flex h-14 items-center px-5">
-            <Link href="/" className="font-display text-xl tracking-tight">VerseFlow</Link>
+          {/* A single pool of brand light at the top of the rail, so the sidebar
+              has a head rather than being an undifferentiated column. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-70"
+            style={{
+              background:
+                "radial-gradient(80% 100% at 20% 0%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 70%)",
+            }}
+          />
+
+          <div className="relative flex h-14 items-center px-5">
+            <Link href="/" aria-label="VerseFlow home">
+              <BrandLockup size={24} wordmarkClassName="text-lg" />
+            </Link>
           </div>
 
           <div className="px-3 pb-3">
@@ -103,7 +116,7 @@ export function AppShell({
             </Button>
           </div>
 
-          <nav className="flex-1 space-y-0.5 px-3" aria-label="Main">
+          <nav className="relative flex-1 space-y-0.5 px-3" aria-label="Main">
             {nav.map((item) => {
               const active = isActive(item.href, item.exact);
               return (
@@ -112,18 +125,39 @@ export function AppShell({
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                    active ? "bg-inset font-medium text-fg" : "text-muted hover:bg-inset hover:text-fg",
+                    "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm",
+                    "transition-[background-color,color,box-shadow] duration-200",
+                    active
+                      ? "raised-1 lit border border-line bg-inset font-medium text-fg"
+                      : "border border-transparent text-muted hover:bg-inset hover:text-fg",
                   )}
                 >
-                  <item.icon className="size-4 shrink-0" aria-hidden />
+                  {/* The active rail marker. It is the only accent in the nav,
+                      which is what makes "where am I" answerable at a glance. */}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute -left-3 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent",
+                      "transition-[opacity,transform] duration-300 ease-[var(--ease-out-expo)]",
+                      active
+                        ? "opacity-100 shadow-[0_0_8px_0_var(--accent)]"
+                        : "scale-y-0 opacity-0",
+                    )}
+                  />
+                  <item.icon
+                    className={cn(
+                      "size-4 shrink-0 transition-colors",
+                      active ? "text-accent" : "text-faint group-hover:text-muted",
+                    )}
+                    aria-hidden
+                  />
                   {item.label}
                 </Link>
               );
             })}
           </nav>
 
-          <div className="space-y-2 border-t border-line-subtle p-3">
+          <div className="relative space-y-2 border-t border-line-subtle p-3">
             <SettlementBadge chain={chain} />
             <UserMenu user={user} address={address} />
           </div>
@@ -131,13 +165,15 @@ export function AppShell({
 
         {/* ---------- Main column ---------- */}
         <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/85 px-4 backdrop-blur-md sm:px-6">
-            <Link href="/" className="font-display text-lg lg:hidden">VerseFlow</Link>
+          <header className="glass sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line px-4 sm:px-6">
+            <Link href="/" aria-label="VerseFlow home" className="lg:hidden">
+              <BrandMark size={24} />
+            </Link>
 
             <button
               type="button"
               onClick={() => { setPaletteOpen(true); trackEvent("command_palette_opened"); }}
-              className="ml-auto flex h-9 items-center gap-2 rounded-lg border border-line bg-raised px-3 text-sm text-faint transition-colors hover:border-line-strong lg:ml-0 lg:w-72"
+              className="face-quiet ml-auto flex h-9 items-center gap-2 rounded-lg border border-line bg-raised px-3 text-sm text-faint transition-[border-color,box-shadow] duration-200 hover:border-line-strong lg:ml-0 lg:w-72"
             >
               <Search className="size-3.5 shrink-0" aria-hidden />
               <span className="hidden lg:inline">Search agreements, payments…</span>
@@ -156,7 +192,7 @@ export function AppShell({
               >
                 <Bell className="size-4" />
                 {unreadCount > 0 ? (
-                  <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-danger text-[9px] font-semibold text-white">
+                  <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-danger text-[9px] font-semibold text-white shadow-[0_0_0_2px_var(--bg),var(--glow-danger)]">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 ) : null}
@@ -174,7 +210,7 @@ export function AppShell({
       {/* ---------- Mobile bottom navigation ---------- */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-raised/95 pb-safe backdrop-blur-md lg:hidden"
+        className="glass fixed inset-x-0 bottom-0 z-30 border-t border-line pb-safe lg:hidden"
       >
         <div className="flex h-16 items-stretch">
           {nav.slice(0, 2).map((item) => (
@@ -186,7 +222,7 @@ export function AppShell({
             <Link
               href="/app/agreements/new"
               aria-label="Create agreement"
-              className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-fg shadow-md transition-transform active:scale-95"
+              className="face-primary sheen flex size-12 items-center justify-center rounded-full text-primary-fg transition-transform duration-200 active:scale-95"
             >
               <Plus className="size-5" aria-hidden />
             </Link>
@@ -231,10 +267,15 @@ function BottomNavLink({
  */
 function SettlementBadge({ chain }: { chain: ShellChain }) {
   return (
-    <div className="rounded-lg border border-line bg-inset px-3 py-2">
+    <div className="lit raised-1 rounded-lg border border-line bg-inset px-3 py-2">
       <div className="flex items-center gap-2">
         <span
-          className={cn("size-1.5 shrink-0 rounded-full", chain.mode === "live" ? "bg-settle" : "bg-attn")}
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            chain.mode === "live"
+              ? "bg-settle shadow-[0_0_0_3px_color-mix(in_oklab,var(--settle)_22%,transparent)]"
+              : "bg-attn shadow-[0_0_0_3px_color-mix(in_oklab,var(--attn)_22%,transparent)]",
+          )}
           aria-hidden
         />
         <span className="text-2xs font-medium">
@@ -278,7 +319,7 @@ function UserMenu({ user, address }: { user: ShellUser; address: string | null }
   return (
     <div ref={ref} className="relative">
       {open ? (
-        <div className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-lg border border-line bg-raised shadow-lg">
+        <div className="raised-4 lit absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-xl border border-line bg-raised animate-[rise_0.2s_var(--ease-out-expo)]">
           <Link
             href={`/p/${user.handle}`}
             className="block px-3 py-2 text-sm text-muted transition-colors hover:bg-inset hover:text-fg"
@@ -347,7 +388,7 @@ function DemoBanner({ persona }: { persona: string }) {
   };
 
   return (
-    <div className="border-b border-attn-border bg-attn-soft">
+    <div className="border-b border-attn-border bg-attn-soft edge-light">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2 sm:px-6">
         <Badge tone="attn">Demo mode</Badge>
         <span className="text-2xs text-muted">
@@ -437,10 +478,15 @@ export function ConnectGate() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-5 py-16">
-      <div className="w-full max-w-md">
-        <Link href="/" className="font-display text-2xl">VerseFlow</Link>
-        <h1 className="mt-6 font-display text-3xl leading-tight">Connect your wallet</h1>
+    <div className="relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-16">
+      <div className="aurora" aria-hidden />
+      <div className="noise absolute inset-0" aria-hidden />
+
+      <div className="panel raised-4 relative w-full max-w-md rounded-3xl p-8">
+        <Link href="/" aria-label="VerseFlow home">
+          <BrandLockup size={28} wordmarkClassName="text-2xl" />
+        </Link>
+        <h1 className="text-gradient mt-6 font-display text-3xl leading-tight">Connect your wallet</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
           Signing proves you control the address. It does not authorize any payment
           and does not move funds.
@@ -468,13 +514,13 @@ export function ConnectGate() {
           <div className="grid gap-2 sm:grid-cols-2">
             <a
               href="/api/demo/start?persona=client"
-              className="flex h-11 items-center justify-center rounded-lg border border-line bg-raised text-sm font-medium transition-colors hover:border-line-strong"
+              className="face-quiet flex h-11 items-center justify-center rounded-xl border border-line bg-raised text-sm font-medium transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-line-strong"
             >
               As a client
             </a>
             <a
               href="/api/demo/start?persona=provider"
-              className="flex h-11 items-center justify-center rounded-lg border border-line bg-raised text-sm font-medium transition-colors hover:border-line-strong"
+              className="face-quiet flex h-11 items-center justify-center rounded-xl border border-line bg-raised text-sm font-medium transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-line-strong"
             >
               As a provider
             </a>

@@ -79,7 +79,7 @@ export default async function AgreementPage({
 
         <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-display text-3xl leading-tight">{agreement.title}</h1>
+            <h1 className="text-gradient font-display text-3xl leading-tight">{agreement.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
               <span className="text-sm text-subtle">
@@ -98,7 +98,7 @@ export default async function AgreementPage({
             {isClient && agreement.status === "awaiting_funding" ? (
               <Link
                 href={`/app/agreements/${agreement.id}/fund`}
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+                className="inline-flex h-10 items-center gap-2 rounded-lg face-primary sheen px-4 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
               >
                 <Lock className="size-4" aria-hidden />
                 Fund agreement
@@ -173,7 +173,7 @@ export default async function AgreementPage({
                     {isClient ? (
                       <Link
                         href={`/app/agreements/${agreement.id}/fund`}
-                        className="mt-3.5 inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+                        className="mt-3.5 inline-flex h-9 items-center gap-2 rounded-lg face-primary sheen px-3.5 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
                       >
                         Fund agreement
                         <ArrowRight className="size-3.5" aria-hidden />
@@ -449,7 +449,7 @@ function MilestoneActions({
     return (
       <Link
         href={`/app/agreements/${agreementId}/review/${milestone.id}`}
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90 sm:w-auto"
+        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg face-primary sheen px-4 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0 sm:w-auto"
       >
         Review milestone · {formatMoney(remaining, asset)}
         <ArrowRight className="size-3.5" aria-hidden />
@@ -461,7 +461,7 @@ function MilestoneActions({
     return (
       <Link
         href={`/app/agreements/${agreementId}/submit/${milestone.id}`}
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90 sm:w-auto"
+        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg face-primary sheen px-4 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0 sm:w-auto"
       >
         {milestone.status === "revision_requested" ? "Submit revision" : "Submit milestone"}
         <ArrowRight className="size-3.5" aria-hidden />

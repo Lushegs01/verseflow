@@ -161,7 +161,7 @@ export function CommandPalette({
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="relative z-10 w-full max-w-xl overflow-hidden rounded-xl border border-line bg-raised shadow-xl animate-[rise_0.2s_var(--ease-out-expo)]"
+        className="panel raised-5 relative z-10 w-full max-w-xl overflow-hidden rounded-2xl animate-[rise_0.2s_var(--ease-out-expo)]"
       >
         <div className="flex items-center gap-3 border-b border-line-subtle px-4">
           <Search className="size-4 shrink-0 text-faint" aria-hidden />

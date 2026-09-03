@@ -53,17 +53,20 @@ export function FlowVisual() {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="relative overflow-hidden rounded-2xl border border-line bg-raised shadow-lg">
+      <div className="panel raised-4 relative overflow-hidden rounded-2xl">
         {/* Window chrome — grounds this as a product surface, not an illustration. */}
         <div className="flex items-center gap-2 border-b border-line-subtle bg-inset px-4 py-2.5">
           <div className="flex gap-1.5" aria-hidden>
-            <span className="size-2.5 rounded-full bg-line-strong" />
-            <span className="size-2.5 rounded-full bg-line-strong" />
-            <span className="size-2.5 rounded-full bg-line-strong" />
+            <span className="size-2.5 rounded-full bg-line-strong shadow-[inset_0_1px_1px_rgb(255_255_255/0.25)]" />
+            <span className="size-2.5 rounded-full bg-line-strong shadow-[inset_0_1px_1px_rgb(255_255_255/0.25)]" />
+            <span className="size-2.5 rounded-full bg-line-strong shadow-[inset_0_1px_1px_rgb(255_255_255/0.25)]" />
           </div>
           <p className="ml-2 font-mono text-2xs text-faint">VF-1042 · Website Redesign</p>
-          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-locked-border bg-locked-soft px-2 py-0.5 text-2xs font-medium text-locked">
-            <span className="size-1.5 rounded-full bg-locked" aria-hidden />
+          <span className="edge-light ml-auto inline-flex items-center gap-1.5 rounded-full border border-locked-border bg-locked-soft px-2 py-0.5 text-2xs font-medium text-locked">
+            <span
+              className="size-1.5 rounded-full bg-locked shadow-[0_0_0_3px_color-mix(in_oklab,var(--locked)_22%,transparent)]"
+              aria-hidden
+            />
             Escrow active
           </span>
         </div>
@@ -81,7 +84,7 @@ export function FlowVisual() {
             {/* Connector rail behind the steps. */}
             <div className="absolute left-[15px] top-4 bottom-4 w-px bg-line" aria-hidden />
             <motion.div
-              className="absolute left-[15px] top-4 w-px origin-top bg-accent"
+              className="absolute left-[15px] top-4 w-px origin-top bg-gradient-to-b from-accent to-locked shadow-[0_0_8px_0_color-mix(in_oklab,var(--accent)_55%,transparent)]"
               aria-hidden
               initial={false}
               animate={{ scaleY: active / (STEPS.length - 1) }}
@@ -94,18 +97,27 @@ export function FlowVisual() {
               const current = index === active;
               return (
                 <li key={step.key} className="relative flex items-start gap-3.5 py-1.5">
-                  <motion.span
-                    className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border transition-colors"
-                    animate={{
-                      backgroundColor: current || done ? step.accent : "var(--bg-raised)",
-                      borderColor: current || done ? step.accent : "var(--border)",
-                      color: current || done ? "#fff" : "var(--fg-faint)",
-                      scale: current && !reduced ? 1.08 : 1,
-                    }}
-                    transition={{ duration: reduced ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    {done ? <Check className="size-4" aria-hidden /> : step.icon}
-                  </motion.span>
+                  <span className="relative flex size-8 shrink-0 items-center justify-center">
+                    {/* The live step throws light. Kept as a CSS-transitioned
+                        sibling because motion cannot tween a color-mix shadow. */}
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -inset-1.5 rounded-full blur-md transition-opacity duration-500"
+                      style={{ backgroundColor: step.accent, opacity: current ? 0.42 : 0 }}
+                    />
+                    <motion.span
+                      className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border transition-colors"
+                      animate={{
+                        backgroundColor: current || done ? step.accent : "var(--bg-raised)",
+                        borderColor: current || done ? step.accent : "var(--border)",
+                        color: current || done ? "#fff" : "var(--fg-faint)",
+                        scale: current && !reduced ? 1.08 : 1,
+                      }}
+                      transition={{ duration: reduced ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      {done ? <Check className="size-4" aria-hidden /> : step.icon}
+                    </motion.span>
+                  </span>
 
                   <div className="min-w-0 flex-1 pt-0.5">
                     <motion.p
@@ -162,8 +174,10 @@ export function FlowVisual() {
             className="group p-1.5"
           >
             <span
-              className={`block h-1 rounded-full transition-all duration-300 ${
-                index === active ? "w-7 bg-fg" : "w-4 bg-line-strong group-hover:bg-faint"
+              className={`block h-1 rounded-full transition-all duration-500 ease-[var(--ease-out-expo)] ${
+                index === active
+                  ? "w-8 bg-fg shadow-[0_0_8px_-1px_var(--fg)]"
+                  : "w-4 bg-line-strong group-hover:bg-faint"
               }`}
             />
           </button>
@@ -202,11 +216,17 @@ function ValueTile({
   }, [value, reduced]);
 
   const color = tone === "settle" ? "text-settle" : tone === "locked" ? "text-locked" : "text-fg";
+  // A figure that is live carries a faint bloom; a zero stays quiet.
+  const bloom =
+    display === 0 ? "" :
+    tone === "settle" ? "[text-shadow:0_0_18px_color-mix(in_oklab,var(--settle)_45%,transparent)]" :
+    tone === "locked" ? "[text-shadow:0_0_18px_color-mix(in_oklab,var(--locked)_45%,transparent)]" :
+    "";
 
   return (
-    <div className="rounded-lg border border-line-subtle bg-inset px-3 py-2.5">
+    <div className="lit raised-1 rounded-lg border border-line-subtle bg-inset px-3 py-2.5">
       <p className="text-2xs text-faint">{label}</p>
-      <p className={`mt-0.5 text-lg font-semibold tabular ${color}`}>
+      <p className={`mt-0.5 text-lg font-semibold tabular transition-colors duration-300 ${color} ${bloom}`}>
         €{display.toLocaleString("en-US")}
       </p>
     </div>

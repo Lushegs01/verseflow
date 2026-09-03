@@ -298,7 +298,7 @@ export function EvidenceCard({ evidence }: { evidence: Evidence }) {
   }
 
   return (
-    <div className="rounded-xl border border-line bg-raised p-4">
+    <div className="panel rounded-xl p-4">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-inset text-subtle">
           <Icon className="size-4" aria-hidden />
@@ -401,7 +401,7 @@ export function VerificationPanel({
   const notMet = analysis.findings.filter((f) => f.assessment === "not_met").length;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-raised">
+    <div className="panel overflow-hidden rounded-xl">
       <header className="flex flex-wrap items-center gap-2 border-b border-line-subtle bg-inset px-4 py-3">
         <ScanLine className="size-4 shrink-0 text-accent" aria-hidden />
         <h3 className="text-sm font-semibold">AI Verification Assistant</h3>

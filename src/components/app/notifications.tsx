@@ -63,7 +63,7 @@ export function NotificationPanel({ open, onClose }: { open: boolean; onClose: (
         role="dialog"
         aria-modal="true"
         aria-label="Notifications"
-        className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col border-l border-line bg-raised shadow-xl animate-[fade_0.2s_ease-out]"
+        className="raised-5 lit absolute inset-y-0 right-0 flex w-full max-w-sm flex-col border-l border-line bg-raised animate-[fade_0.2s_ease-out]"
       >
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line-subtle px-4">
           <h2 className="text-sm font-semibold">Notifications</h2>

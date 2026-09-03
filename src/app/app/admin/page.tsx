@@ -78,7 +78,7 @@ export default async function AdminPage() {
       <header className="mb-6">
         <div className="flex flex-wrap items-center gap-2">
           <Shield className="size-5 text-faint" aria-hidden />
-          <h1 className="font-display text-3xl">Operations</h1>
+          <h1 className="text-gradient font-display text-3xl">Operations</h1>
           <Badge tone="attn">Restricted</Badge>
         </div>
         <p className="mt-1 text-sm text-subtle">
@@ -156,7 +156,7 @@ export default async function AdminPage() {
                   {agreement ? (
                     <Link
                       href={`/app/agreements/${agreement.id}/dispute/${dispute.id}`}
-                      className="inline-flex h-8 shrink-0 items-center rounded-md border border-line bg-raised px-3 text-xs font-medium transition-colors hover:bg-inset"
+                      className="face-quiet inline-flex h-8 shrink-0 items-center rounded-md border border-line bg-raised px-3 text-xs font-medium transition-[background-color,box-shadow] hover:bg-inset"
                     >
                       Review
                     </Link>

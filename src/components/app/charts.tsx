@@ -43,10 +43,17 @@ export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
                 </span>
               </div>
 
-              <div className="mt-1.5 h-6 overflow-hidden rounded-md bg-sunken">
+              {/* The track is a well and the bar sits in it, lit along its own
+                  top edge -- the same material rule the rest of the UI follows. */}
+              <div className="mt-1.5 h-6 overflow-hidden rounded-md bg-sunken shadow-[inset_0_1px_2px_rgb(19_18_17/0.08)]">
                 <div
-                  className="h-full rounded-md bg-accent transition-[width] duration-700 ease-[var(--ease-out-expo)]"
-                  style={{ width: `${width}%`, opacity: 1 - i * 0.11 }}
+                  className="h-full rounded-md transition-[width] duration-700 ease-[var(--ease-out-expo)] shadow-[inset_0_1px_0_0_rgb(255_255_255/0.28)]"
+                  style={{
+                    width: `${width}%`,
+                    opacity: 1 - i * 0.11,
+                    backgroundImage:
+                      "linear-gradient(180deg, color-mix(in oklab, var(--accent) 86%, white), var(--accent))",
+                  }}
                 />
               </div>
 
@@ -96,11 +103,11 @@ export function VolumeChart({
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-4 text-2xs">
         <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-sm bg-locked" aria-hidden />
+          <span className="size-2 rounded-sm bg-locked shadow-[inset_0_1px_0_0_rgb(255_255_255/0.35)]" aria-hidden />
           <span className="text-subtle">Funded into escrow</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-sm bg-settle" aria-hidden />
+          <span className="size-2 rounded-sm bg-settle shadow-[inset_0_1px_0_0_rgb(255_255_255/0.35)]" aria-hidden />
           <span className="text-subtle">Released to providers</span>
         </span>
       </div>
@@ -114,22 +121,26 @@ export function VolumeChart({
             onMouseLeave={() => setHovered(null)}
           >
             <div
-              className="flex-1 rounded-t-sm bg-locked transition-opacity"
+              className="flex-1 rounded-t-sm transition-opacity shadow-[inset_0_1px_0_0_rgb(255_255_255/0.3)]"
               style={{
                 height: `${Math.max((d.funded / max) * 100, d.funded > 0 ? 2 : 0)}%`,
                 opacity: hovered === null || hovered === i ? 1 : 0.4,
+                backgroundImage:
+                  "linear-gradient(180deg, color-mix(in oklab, var(--locked) 88%, white), var(--locked) 65%, color-mix(in oklab, var(--locked) 72%, transparent))",
               }}
             />
             <div
-              className="flex-1 rounded-t-sm bg-settle transition-opacity"
+              className="flex-1 rounded-t-sm transition-opacity shadow-[inset_0_1px_0_0_rgb(255_255_255/0.3)]"
               style={{
                 height: `${Math.max((d.released / max) * 100, d.released > 0 ? 2 : 0)}%`,
                 opacity: hovered === null || hovered === i ? 1 : 0.4,
+                backgroundImage:
+                  "linear-gradient(180deg, color-mix(in oklab, var(--settle) 88%, white), var(--settle) 65%, color-mix(in oklab, var(--settle) 72%, transparent))",
               }}
             />
 
             {hovered === i ? (
-              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-raised px-2.5 py-1.5 shadow-lg">
+              <div className="glass raised-4 pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5">
                 <p className="text-2xs font-medium">
                   Week of {new Date(d.week).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </p>

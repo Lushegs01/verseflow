@@ -80,7 +80,7 @@ export function MilestoneEditor({
   };
 
   return (
-    <div className="rounded-xl border border-line bg-raised">
+    <div className="panel rounded-xl">
       {/* ---------- Header ---------- */}
       <div className="flex items-start gap-3 border-b border-line-subtle p-4">
         <div className="flex shrink-0 flex-col gap-0.5 pt-1">

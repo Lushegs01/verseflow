@@ -52,7 +52,7 @@ export default async function PublicProfilePage({
             <ThemeToggle />
             <Link
               href="/app/agreements/new"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg face-primary sheen px-3.5 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
             >
               Create an agreement
             </Link>
@@ -72,7 +72,7 @@ export default async function PublicProfilePage({
           </span>
 
           <div className="min-w-0 flex-1">
-            <h1 className="font-display text-4xl leading-tight">{profile.user.displayName}</h1>
+            <h1 className="text-gradient font-display text-4xl leading-tight">{profile.user.displayName}</h1>
             {profile.user.headline ? (
               <p className="mt-1 text-base text-muted">{profile.user.headline}</p>
             ) : null}
@@ -124,7 +124,7 @@ export default async function PublicProfilePage({
               {profile.showcase.map((item) => (
                 <li
                   key={item.id}
-                  className="rounded-xl border border-line bg-raised p-5"
+                  className="panel rounded-xl p-5"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -159,7 +159,7 @@ export default async function PublicProfilePage({
         ) : null}
 
         {/* ---------- CTA ---------- */}
-        <section className="mt-12 rounded-xl border border-line bg-raised p-6 sm:p-8">
+        <section className="panel mt-12 rounded-2xl p-6 sm:p-8">
           <h2 className="font-display text-2xl">
             Work with {profile.user.displayName.split(" ")[0]} through VerseFlow
           </h2>
@@ -169,7 +169,7 @@ export default async function PublicProfilePage({
           </p>
           <Link
             href="/app/agreements/new"
-            className="mt-5 inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+            className="mt-5 inline-flex h-11 items-center gap-2 rounded-lg face-primary sheen px-5 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
           >
             Create an agreement
             <ArrowRight className="size-4" aria-hidden />

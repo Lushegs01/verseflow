@@ -22,7 +22,7 @@ export default function AppNotFound() {
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/app"
-          className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+          className="inline-flex h-10 items-center rounded-lg face-primary sheen px-4 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
         >
           Back to dashboard
         </Link>

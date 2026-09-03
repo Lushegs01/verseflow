@@ -144,7 +144,7 @@ export function AgreementBuilder({
   if (mode === "choose") {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
-        <h1 className="font-display text-4xl leading-tight">Create an agreement</h1>
+        <h1 className="text-gradient font-display text-4xl leading-tight">Create an agreement</h1>
         <p className="mt-3 max-w-lg text-base text-muted">
           Turn what you already agreed with someone into milestones, escrow, and a
           payment schedule.
@@ -154,7 +154,7 @@ export function AgreementBuilder({
           <button
             type="button"
             onClick={() => setMode("ai")}
-            className="group rounded-xl border border-line bg-raised p-6 text-left transition-all hover:border-accent-border hover:shadow-md"
+            className="panel group flex flex-col items-start rounded-2xl p-6 text-left transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 hover:border-accent-border hover:lift-accent"
           >
             <span className="inline-flex size-10 items-center justify-center rounded-lg border border-accent-border bg-accent-soft text-accent">
               <Sparkles className="size-5" aria-hidden />
@@ -164,7 +164,7 @@ export function AgreementBuilder({
               Write it the way you would explain it to a colleague. Get milestones,
               amounts, deadlines, and acceptance criteria to edit.
             </p>
-            <span className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-accent">
+            <span className="mt-auto pt-4 inline-flex items-center gap-1 text-xs font-medium text-accent">
               Recommended
               <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </span>
@@ -173,7 +173,7 @@ export function AgreementBuilder({
           <button
             type="button"
             onClick={() => setMode("build")}
-            className="group rounded-xl border border-line bg-raised p-6 text-left transition-all hover:border-line-strong hover:shadow-md"
+            className="panel group flex flex-col items-start rounded-2xl p-6 text-left transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 hover:border-line-strong hover:raised-3"
           >
             <span className="inline-flex size-10 items-center justify-center rounded-lg border border-line bg-inset text-subtle">
               <PenLine className="size-5" aria-hidden />
@@ -183,7 +183,7 @@ export function AgreementBuilder({
               Build the agreement field by field. Best when you already know the
               exact milestones and amounts.
             </p>
-            <span className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-muted">
+            <span className="mt-auto pt-4 inline-flex items-center gap-1 text-xs font-medium text-muted">
               Build manually
               <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </span>
@@ -476,7 +476,7 @@ function AIComposer({
         </button>
       </div>
 
-      <h1 className="font-display text-3xl leading-tight">Describe your project</h1>
+      <h1 className="text-gradient font-display text-3xl leading-tight">Describe your project</h1>
       <p className="mt-2 max-w-xl text-sm text-muted">
         Write it however you would explain it to a colleague. Everything generated is
         editable, and nothing is created until you say so.
