@@ -493,6 +493,12 @@
   -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
 
+/* Without a backdrop filter the translucency has nothing to blur, and body copy
+   would stay legible straight through the chrome. Fall back to solid. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background-color: var(--bg-raised); }
+}
+
 /* ==========================================================================
    Utilities
    ========================================================================== */
@@ -813,6 +819,22 @@
   .skeleton { animation: none; background: var(--bg-sunken); }
   .aurora::before,
   .aurora::after { animation: none !important; }
+  .sheen::after { display: none; }
+}
+
+/* Forced colours (Windows high contrast): background-clip text has no colour of
+   its own, so the gradient headings would render as nothing. Give them back a
+   system colour and drop the ambient light entirely. */
+@media (forced-colors: active) {
+  .text-gradient,
+  .text-brand-gradient {
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: CanvasText;
+  }
+  .aurora,
+  .noise::before,
   .sheen::after { display: none; }
 }
 
