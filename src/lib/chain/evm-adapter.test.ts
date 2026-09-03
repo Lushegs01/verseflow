@@ -95,7 +95,11 @@ describe("live adapter network preflight", () => {
     const adapter = new EvmVerseAdapter();
 
     const tx = await adapter.prepareRelease(release() as never);
-    expect(tx.to.toLowerCase()).toBe(ESCROW);
+    // `to` is nullable because the simulated adapter has no contract to call.
+    // The live one always does, so state that separately rather than assuming
+    // it -- a null here would be a real defect, and it should say so.
+    expect(tx.to).not.toBeNull();
+    expect(tx.to?.toLowerCase()).toBe(ESCROW);
     expect(tx.chainId).toBe(CONFIGURED_CHAIN);
     expect(tx.simulatedReceipt).toBeNull();
   });
