@@ -129,7 +129,7 @@ export function VolumeChart({
             />
 
             {hovered === i ? (
-              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-raised px-2.5 py-1.5 shadow-lg">
+              <div className="glass raised-4 pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5">
                 <p className="text-2xs font-medium">
                   Week of {new Date(d.week).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </p>

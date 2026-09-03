@@ -169,7 +169,7 @@ export function ReviewPanel({
     <div className="mt-4 space-y-5">
       {/* ---------- Header ---------- */}
       <header>
-        <h1 className="font-display text-3xl leading-tight">Milestone ready for review</h1>
+        <h1 className="text-gradient font-display text-3xl leading-tight">Milestone ready for review</h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <span className="text-lg font-semibold tabular text-settle">
             {formatMoney(remaining, asset)}

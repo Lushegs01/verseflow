@@ -25,7 +25,7 @@ export default async function ReputationPage() {
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl">Work reputation</h1>
+          <h1 className="text-gradient font-display text-3xl">Work reputation</h1>
           <p className="mt-1 max-w-xl text-sm text-subtle">
             Computed from agreements that were signed, funded, and settled. Nothing here
             is self-reported.
@@ -52,7 +52,7 @@ export default async function ReputationPage() {
             action={
               <Link
                 href="/app/agreements/new"
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+                className="inline-flex h-10 items-center gap-2 rounded-lg face-primary sheen px-4 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
               >
                 Create an Agreement
               </Link>
@@ -137,7 +137,7 @@ export default async function ReputationPage() {
               action={
                 <Link
                   href="/app/settings#privacy"
-                  className="inline-flex h-8 items-center rounded-md border border-line bg-raised px-3 text-xs font-medium transition-colors hover:bg-inset"
+                  className="face-quiet inline-flex h-8 items-center rounded-md border border-line bg-raised px-3 text-xs font-medium transition-[background-color,box-shadow] hover:bg-inset"
                 >
                   {auth.user.publicProfileEnabled ? "Manage" : "Enable"}
                 </Link>

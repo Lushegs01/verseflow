@@ -88,7 +88,7 @@ export function DisputeRoom({
       {/* ---------- Header ---------- */}
       <header>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="font-display text-3xl leading-tight">Resolve milestone</h1>
+          <h1 className="text-gradient font-display text-3xl leading-tight">Resolve milestone</h1>
           <Badge tone={resolved ? "settle" : "danger"}>
             {resolved ? "Resolved" : "Open"}
           </Badge>

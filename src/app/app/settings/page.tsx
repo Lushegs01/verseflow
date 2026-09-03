@@ -18,7 +18,7 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
       <header className="mb-6">
-        <h1 className="font-display text-3xl">Settings</h1>
+        <h1 className="text-gradient font-display text-3xl">Settings</h1>
         <p className="mt-1 text-sm text-subtle">
           Your profile, wallets, privacy, and notifications.
         </p>

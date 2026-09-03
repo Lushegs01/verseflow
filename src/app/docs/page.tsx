@@ -18,7 +18,7 @@ export default function DocsPage() {
       <MarketingHeader />
 
       <main id="main" className="mx-auto w-full max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
-        <h1 className="font-display text-4xl leading-tight">How VerseFlow works</h1>
+        <h1 className="text-gradient font-display text-4xl leading-tight">How VerseFlow works</h1>
         <p className="mt-4 text-lg leading-relaxed text-muted">
           A short, honest description of what the product does, what it guarantees, and
           what it does not.
@@ -173,7 +173,7 @@ export default function DocsPage() {
         <div className="mt-12 border-t border-line pt-8">
           <Link
             href="/app/agreements/new"
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+            className="inline-flex h-11 items-center gap-2 rounded-lg face-primary sheen px-5 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-0"
           >
             Create an agreement
           </Link>
@@ -222,7 +222,7 @@ function Layers() {
   return (
     <ol className="not-prose my-5 space-y-2">
       {layers.map((layer, i) => (
-        <li key={layer.label} className="flex gap-3 rounded-lg border border-line bg-raised p-4">
+        <li key={layer.label} className="panel flex gap-3 rounded-xl p-4">
           <span className="font-mono text-2xs text-faint" aria-hidden>{String(i + 1).padStart(2, "0")}</span>
           <span className="min-w-0">
             <span className="block text-sm font-medium text-fg">{layer.label}</span>

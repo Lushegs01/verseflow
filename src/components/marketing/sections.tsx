@@ -646,7 +646,7 @@ export function FinalCTA() {
       <Reveal>
         {/* The last thing on the page, so it is allowed to be the loudest:
             ambient light, a gradient hairline, and the dot field underneath. */}
-        <div className="panel border-gradient grain raised-4 relative isolate overflow-hidden rounded-3xl px-6 py-16 text-center sm:px-12 sm:py-24">
+        <div className="panel border-gradient grain raised-4 relative isolate overflow-hidden rounded-3xl px-6 py-16 text-center sm:px-12 sm:py-20">
           <div className="aurora" aria-hidden />
           <div className="noise absolute inset-0" aria-hidden />
 

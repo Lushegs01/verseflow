@@ -201,7 +201,7 @@ export function SubmitPanel({
   return (
     <div className="mt-4 space-y-5">
       <header>
-        <h1 className="font-display text-3xl leading-tight">
+        <h1 className="text-gradient font-display text-3xl leading-tight">
           {isRevision ? "Submit revised work" : "Submit milestone"}
         </h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -428,7 +428,7 @@ export function SubmitPanel({
 
       {/* --- Sticky submit bar: always reachable on mobile --- */}
       <div className="sticky bottom-20 z-20 lg:bottom-4">
-        <div className="rounded-xl border border-line bg-raised p-3 shadow-lg">
+        <div className="panel raised-4 rounded-xl p-3">
           <Button
             variant="primary"
             size="lg"
