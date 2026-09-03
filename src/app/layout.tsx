@@ -19,6 +19,7 @@ const inter = Inter({
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
+  style: ["normal", "italic"],
   variable: "--font-instrument-serif",
   display: "swap",
   fallback: ["Georgia", "Times New Roman", "serif"],
@@ -57,7 +58,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#F8F8F6" },
-    { media: "(prefers-color-scheme: dark)", color: "#0C0C0B" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A0C" },
   ],
   width: "device-width",
   initialScale: 1,

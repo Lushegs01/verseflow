@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
+import { BrandLockup } from "@/components/ui";
 
 const NAV = [
   { label: "How it works", href: "/#how-it-works" },
@@ -32,21 +33,37 @@ export function MarketingHeader() {
 
   return (
     <header
-      className={`sticky top-0 z-40 border-b transition-colors duration-200 ${
-        scrolled ? "border-line bg-surface/85 backdrop-blur-md" : "border-transparent bg-surface"
+      className={`sticky top-0 z-40 transition-[background-color,box-shadow,backdrop-filter] duration-300 ${
+        scrolled ? "glass shadow-[0_1px_0_0_var(--border),0_8px_24px_-16px_rgb(19_18_17/0.3)]" : "bg-transparent"
       }`}
     >
+      {/* A hairline that brightens toward the centre rather than a flat rule --
+          the page edge reads as lit, matching every other surface. */}
+      <span
+        aria-hidden
+        className={`pointer-events-none absolute inset-x-0 bottom-0 h-px transition-opacity duration-300 ${
+          scrolled ? "opacity-100" : "opacity-0"
+        }`}
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, color-mix(in oklab, var(--accent) 35%, transparent) 30%, color-mix(in oklab, var(--locked) 30%, transparent) 70%, transparent)",
+        }}
+      />
+
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-5 sm:px-8">
-        <Link href="/" className="font-display text-xl tracking-tight">
-          VerseFlow
+        <Link href="/" aria-label="VerseFlow home" className="group">
+          <BrandLockup
+            size={26}
+            className="transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-px"
+          />
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm text-muted transition-colors hover:text-fg"
+              className="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-raised hover:text-fg"
             >
               {item.label}
             </Link>
@@ -63,11 +80,14 @@ export function MarketingHeader() {
           </Link>
           <Link
             href="/app/agreements/new"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+            className="face-primary sheen group inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-px active:translate-y-px"
           >
             <span className="hidden sm:inline">Create agreement</span>
             <span className="sm:hidden">Create</span>
-            <ArrowRight className="size-3.5" aria-hidden />
+            <ArrowRight
+              className="size-3.5 transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:translate-x-0.5"
+              aria-hidden
+            />
           </Link>
 
           <button
@@ -87,7 +107,7 @@ export function MarketingHeader() {
         <nav
           id="mobile-nav"
           aria-label="Mobile"
-          className="border-t border-line bg-surface px-5 py-3 md:hidden"
+          className="glass border-t border-line px-5 py-3 md:hidden"
         >
           <ul className="space-y-1">
             {[...NAV, { label: "Open app", href: "/app" }].map((item) => (

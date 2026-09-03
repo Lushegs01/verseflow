@@ -29,9 +29,20 @@ export function Section({
   );
 }
 
+/**
+ * Section label. The short rule that precedes it does the work a heavier weight
+ * or a louder colour would otherwise have to do.
+ */
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-3 text-2xs font-semibold uppercase tracking-[0.14em] text-accent">{children}</p>
+    <p className="mb-3 flex items-center gap-2.5 text-2xs font-semibold uppercase tracking-[0.14em] text-accent">
+      <span
+        aria-hidden
+        className="h-px w-6 shrink-0 rounded-full"
+        style={{ background: "linear-gradient(90deg, transparent, var(--accent))" }}
+      />
+      {children}
+    </p>
   );
 }
 
@@ -39,7 +50,7 @@ export function SectionTitle({
   children, className,
 }: { children: React.ReactNode; className?: string }) {
   return (
-    <h2 className={`font-display text-3xl leading-[1.1] sm:text-4xl ${className ?? ""}`}>
+    <h2 className={`text-gradient font-display text-3xl leading-[1.1] sm:text-4xl ${className ?? ""}`}>
       {children}
     </h2>
   );
@@ -94,7 +105,7 @@ export function ProblemSection() {
         <div className="space-y-4">
           {items.map((item, i) => (
             <Reveal key={item.party} delay={0.08 * (i + 1)}>
-              <div className="rounded-xl border border-line bg-raised p-5">
+              <div className="panel rounded-xl p-5 transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 hover:raised-3">
                 <p className="text-base font-medium">
                   {item.party} <span className="text-subtle">{item.want}.</span>
                 </p>
@@ -104,8 +115,12 @@ export function ProblemSection() {
           ))}
 
           <Reveal delay={0.24}>
-            <div className="rounded-xl border border-accent-border bg-accent-soft p-5">
-              <p className="text-sm leading-relaxed">
+            <div className="edge-light relative overflow-hidden rounded-xl border border-accent-border bg-accent-soft p-5">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -right-16 -top-16 size-40 rounded-full bg-accent/12 blur-2xl"
+              />
+              <p className="relative text-sm leading-relaxed">
                 An invoice records what someone <em>says</em> happened. VerseFlow holds the money against
                 what the two sides actually agreed, and releases it when a person says the terms were met.
               </p>
@@ -142,13 +157,22 @@ export function SolutionSection() {
         </p>
       </Reveal>
 
-      <div className="mt-12 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
+      {/* One hairline grid rather than five separate cards: the steps are a
+          single continuous record, and the layout should say so. */}
+      <div className="raised-2 mt-12 grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
         {SOLUTION_STEPS.map((step, i) => (
-          <Reveal key={step.title} delay={i * 0.06}>
-            <div className="h-full bg-raised p-5 transition-colors hover:bg-inset">
-              <span className="font-mono text-2xs text-faint">{step.icon}</span>
-              <h3 className="mt-3 text-base font-semibold">{step.title}</h3>
+          <Reveal key={step.title} delay={i * 0.06} className="h-full">
+            <div className="group relative h-full bg-raised p-5 transition-colors duration-300 hover:bg-inset">
+              {/* The step number sits in its own chip so the eye can count. */}
+              <span className="inline-flex size-7 items-center justify-center rounded-lg border border-line bg-inset font-mono text-2xs text-subtle transition-colors duration-300 group-hover:border-accent-border group-hover:bg-accent-soft group-hover:text-accent">
+                {step.icon}
+              </span>
+              <h3 className="mt-3.5 text-base font-semibold">{step.title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-subtle">{step.body}</p>
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-px scale-x-0 bg-accent opacity-0 transition-[transform,opacity] duration-500 ease-[var(--ease-out-expo)] group-hover:scale-x-100 group-hover:opacity-100"
+              />
             </div>
           </Reveal>
         ))}
@@ -220,9 +244,10 @@ export function AISection() {
 
       <div ref={containerRef} className="mt-12 grid gap-4 lg:grid-cols-2">
         {/* Left: the brief */}
-        <Reveal>
-          <div className="h-full rounded-xl border border-line bg-raised">
-            <div className="flex items-center gap-2 border-b border-line-subtle px-4 py-3">
+        <Reveal className="h-full">
+          <div className="panel h-full overflow-hidden rounded-2xl">
+            <div className="flex items-center gap-2 border-b border-line-subtle bg-inset px-4 py-3">
+              <span className="size-1.5 rounded-full bg-faint" aria-hidden />
               <span className="text-xs font-medium text-subtle">Your brief</span>
             </div>
             <div className="p-5">
@@ -237,9 +262,9 @@ export function AISection() {
         </Reveal>
 
         {/* Right: the generated agreement */}
-        <Reveal delay={0.1}>
-          <div className="h-full rounded-xl border border-line bg-raised">
-            <div className="flex items-center gap-2 border-b border-line-subtle px-4 py-3">
+        <Reveal delay={0.1} className="h-full">
+          <div className="panel border-gradient h-full overflow-hidden rounded-2xl">
+            <div className="flex items-center gap-2 border-b border-line-subtle bg-inset px-4 py-3">
               <Sparkles className="size-3.5 text-accent" aria-hidden />
               <span className="text-xs font-medium text-subtle">Generated agreement</span>
               <span className="ml-auto font-mono text-2xs text-faint">$2,500 allocated</span>
@@ -252,7 +277,7 @@ export function AISection() {
                   initial={reduced ? false : { opacity: 0, x: 12 }}
                   animate={showResult ? { opacity: 1, x: 0 } : { opacity: 0, x: 12 }}
                   transition={{ duration: 0.4, delay: 0.1 * i, ease: [0.16, 1, 0.3, 1] }}
-                  className="rounded-lg border border-line-subtle bg-inset p-3"
+                  className="edge-light rounded-lg border border-line-subtle bg-inset p-3"
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="text-sm font-medium">{m.title}</p>
@@ -270,7 +295,7 @@ export function AISection() {
                 initial={reduced ? false : { opacity: 0 }}
                 animate={showResult ? { opacity: 1 } : { opacity: 0 }}
                 transition={{ duration: 0.4, delay: 0.42 }}
-                className="flex items-start gap-2 rounded-lg border border-attn-border bg-attn-soft p-3"
+                className="edge-light flex items-start gap-2 rounded-lg border border-attn-border bg-attn-soft p-3"
               >
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-attn" aria-hidden />
                 <div>
@@ -296,7 +321,7 @@ export function AISection() {
 export function EscrowSection() {
   return (
     <Section className="py-20 sm:py-28">
-      <div className="overflow-hidden rounded-2xl border border-line bg-raised">
+      <div className="panel raised-3 overflow-hidden rounded-3xl">
         <div className="grid lg:grid-cols-2">
           <div className="p-8 sm:p-10">
             <Reveal>
@@ -337,11 +362,13 @@ export function EscrowSection() {
                 ].map((row) => (
                   <div
                     key={row.label}
-                    className="flex items-center gap-3 rounded-lg border border-line-subtle bg-raised p-3.5"
+                    className="raised-1 lit flex items-center gap-3 rounded-lg border border-line-subtle bg-raised p-3.5"
                   >
                     <span
                       className={`size-2 shrink-0 rounded-full ${
-                        row.tone === "settle" ? "bg-settle" : row.tone === "accent" ? "bg-accent" : "bg-line-strong"
+                        row.tone === "settle" ? "bg-settle shadow-[0_0_0_3px_color-mix(in_oklab,var(--settle)_20%,transparent)]" :
+                        row.tone === "accent" ? "bg-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_20%,transparent)]" :
+                        "bg-line-strong"
                       }`}
                       aria-hidden
                     />
@@ -360,7 +387,9 @@ export function EscrowSection() {
 
               <div className="mt-5 flex items-baseline justify-between border-t border-line pt-4">
                 <span className="text-xs text-subtle">Still locked in escrow</span>
-                <span className="text-lg font-semibold tabular text-locked">$2,250</span>
+                <span className="text-2xl font-semibold tabular text-locked [text-shadow:0_0_24px_color-mix(in_oklab,var(--locked)_35%,transparent)]">
+                  $2,250
+                </span>
               </div>
             </div>
           </Reveal>
@@ -401,8 +430,8 @@ export function EvidenceSection() {
         <div className="space-y-3">
           {cards.map((card, i) => (
             <Reveal key={card.title} delay={0.08 * i}>
-              <div className="flex items-start gap-3.5 rounded-xl border border-line bg-raised p-4">
-                <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-inset text-subtle">
+              <div className="panel group flex items-start gap-3.5 rounded-xl p-4 transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 hover:raised-3">
+                <span className="raised-1 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-inset text-subtle transition-colors duration-300 group-hover:border-accent-border group-hover:bg-accent-soft group-hover:text-accent">
                   {card.icon}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -434,8 +463,12 @@ export function TrustSection() {
 
   return (
     <Section className="py-20 sm:py-28">
-      <div className="rounded-2xl border border-line bg-raised p-8 sm:p-12">
-        <Reveal className="max-w-2xl">
+      {/* The most important claim on the page, so it gets the page's only other
+          pool of ambient light and its widest panel. */}
+      <div className="panel raised-3 relative isolate overflow-hidden rounded-3xl p-8 sm:p-12">
+        <div className="aurora opacity-60" aria-hidden />
+        <div className="noise absolute inset-0" aria-hidden />
+        <Reveal className="relative max-w-2xl">
           <Eyebrow>Trust model</Eyebrow>
           <SectionTitle>VerseFlow does not let AI decide who receives money.</SectionTitle>
           <p className="mt-4 text-base leading-relaxed text-muted">
@@ -446,20 +479,27 @@ export function TrustSection() {
           </p>
         </Reveal>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="relative mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {layers.map((layer, i) => (
-            <Reveal key={layer.label} delay={i * 0.07}>
-              <div className="h-full rounded-xl border border-line-subtle bg-inset p-5">
-                <span
-                  className={`inline-flex size-9 items-center justify-center rounded-lg border ${
-                    layer.tone === "accent" ? "border-accent-border bg-accent-soft text-accent" :
-                    layer.tone === "locked" ? "border-locked-border bg-locked-soft text-locked" :
-                    layer.tone === "settle" ? "border-settle-border bg-settle-soft text-settle" :
-                    "border-line bg-raised text-subtle"
-                  }`}
-                >
-                  {layer.icon}
-                </span>
+            <Reveal key={layer.label} delay={i * 0.07} className="h-full">
+              <div className="lit raised-1 h-full rounded-xl border border-line-subtle bg-inset p-5 transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-1 hover:raised-3">
+                {/* Each layer is numbered: they are a sequence of gates, not four
+                    interchangeable features. */}
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`edge-light inline-flex size-9 items-center justify-center rounded-lg border ${
+                      layer.tone === "accent" ? "border-accent-border bg-accent-soft text-accent" :
+                      layer.tone === "locked" ? "border-locked-border bg-locked-soft text-locked" :
+                      layer.tone === "settle" ? "border-settle-border bg-settle-soft text-settle" :
+                      "border-line bg-raised text-subtle"
+                    }`}
+                  >
+                    {layer.icon}
+                  </span>
+                  <span className="font-mono text-2xs text-faint">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </div>
                 <p className="mt-3.5 text-sm font-semibold">{layer.label}</p>
                 <p className="mt-1.5 text-xs leading-relaxed text-subtle">{layer.body}</p>
               </div>
@@ -487,11 +527,14 @@ export function ReputationSection() {
     <Section className="py-20 sm:py-28">
       <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16">
         <Reveal delay={0.1} className="order-2 lg:order-1">
-          <div className="rounded-2xl border border-line bg-raised p-6">
+          <div className="panel raised-3 rounded-3xl p-6">
             <div className="flex items-center gap-3.5">
               <span
-                className="flex size-12 items-center justify-center rounded-full text-sm font-semibold text-white"
-                style={{ backgroundColor: "#0F9D6B" }}
+                className="flex size-12 items-center justify-center rounded-full text-sm font-semibold text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.3),var(--glow-settle)]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(145deg, color-mix(in oklab, #0F9D6B 78%, white), #0F9D6B 60%, color-mix(in oklab, #0F9D6B 85%, black))",
+                }}
                 aria-hidden
               >
                 AM
@@ -500,16 +543,16 @@ export function ReputationSection() {
                 <p className="text-base font-semibold">Alex Morgan</p>
                 <p className="text-xs text-subtle">Full-stack developer</p>
               </div>
-              <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-settle-border bg-settle-soft px-2.5 py-1 text-2xs font-medium text-settle">
+              <span className="edge-light ml-auto inline-flex items-center gap-1.5 rounded-full border border-settle-border bg-settle-soft px-2.5 py-1 text-2xs font-medium text-settle">
                 <Check className="size-3" aria-hidden />
                 Verified history
               </span>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
+            <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-4">
               {stats.map((stat) => (
-                <div key={stat.label} className="bg-inset p-4 text-center">
-                  <p className="text-xl font-semibold tabular">{stat.value}</p>
+                <div key={stat.label} className="lit bg-inset p-4 text-center transition-colors duration-300 hover:bg-raised">
+                  <p className="text-gradient text-2xl font-semibold tabular">{stat.value}</p>
                   <p className="mt-1 text-2xs leading-tight text-subtle">{stat.label}</p>
                 </div>
               ))}
@@ -580,7 +623,7 @@ export function VerseSection({ chainName }: { chainName: string }) {
                 { label: "Low settlement cost", body: "Per-milestone releases stay economical" },
                 { label: "Fast finality", body: "Payment confirms while it still matters" },
               ].map((item) => (
-                <div key={item.label} className="rounded-lg border border-line bg-raised p-4">
+                <div className="panel rounded-xl p-4 transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 hover:raised-3" key={item.label}>
                   <p className="text-xs font-semibold">{item.label}</p>
                   <p className="mt-1 text-2xs leading-relaxed text-subtle">{item.body}</p>
                 </div>
@@ -601,28 +644,42 @@ export function FinalCTA() {
   return (
     <Section className="py-20 sm:py-32">
       <Reveal>
-        <div className="grain relative overflow-hidden rounded-2xl border border-line bg-raised px-6 py-16 text-center sm:px-12 sm:py-20">
-          <h2 className="font-display text-4xl leading-[1.05] sm:text-5xl">
-            Build your first agreement.
-          </h2>
-          <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-muted">
-            Describe a project in a sentence. Review the milestones. Fund escrow when you are ready.
-            It takes about two minutes.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href="/app/agreements/new"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-fg shadow-sm transition-opacity hover:opacity-90"
-            >
-              Create an Agreement
-              <ArrowRight className="size-4" aria-hidden />
-            </a>
-            <a
-              href="/api/demo/start?persona=client"
-              className="inline-flex h-12 items-center justify-center rounded-lg border border-line-strong px-6 text-base font-medium transition-colors hover:bg-inset"
-            >
-              Explore the demo
-            </a>
+        {/* The last thing on the page, so it is allowed to be the loudest:
+            ambient light, a gradient hairline, and the dot field underneath. */}
+        <div className="panel border-gradient grain raised-4 relative isolate overflow-hidden rounded-3xl px-6 py-16 text-center sm:px-12 sm:py-24">
+          <div className="aurora" aria-hidden />
+          <div className="noise absolute inset-0" aria-hidden />
+
+          <div className="relative">
+            <h2 className="text-gradient font-display text-4xl leading-[1.05] sm:text-5xl">
+              Build your first <em className="text-brand-gradient">agreement</em>.
+            </h2>
+            <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-muted">
+              Describe a project in a sentence. Review the milestones. Fund escrow when you are ready.
+              It takes about two minutes.
+            </p>
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a
+                href="/app/agreements/new"
+                className="face-primary sheen group inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-base font-medium text-primary-fg transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 active:translate-y-0"
+              >
+                Create an Agreement
+                <ArrowRight
+                  className="size-4 transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:translate-x-1"
+                  aria-hidden
+                />
+              </a>
+              <a
+                href="/api/demo/start?persona=client"
+                className="face-quiet inline-flex h-12 items-center justify-center rounded-xl border border-line-strong bg-raised px-6 text-base font-medium transition-transform duration-200 ease-[var(--ease-out-expo)] hover:-translate-y-0.5"
+              >
+                Explore the demo
+              </a>
+            </div>
+
+            <p className="mt-8 text-2xs text-faint">
+              No card required · Escrow funded only when you choose to fund it
+            </p>
           </div>
         </div>
       </Reveal>

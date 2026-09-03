@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       <header className="mb-6">
-        <h1 className="font-display text-3xl">
+        <h1 className="text-gradient font-display text-3xl sm:text-4xl">
           {actions.length > 0
             ? `${firstName}, you have ${actions.length} thing${actions.length === 1 ? "" : "s"} to do.`
             : `You are caught up, ${firstName}.`}
@@ -45,7 +45,9 @@ export default async function DashboardPage() {
 
       {/* ---------- Overview ---------- */}
       <section aria-label="Overview" className="mb-8">
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line lg:grid-cols-5">
+        {/* One hairline grid rather than five cards: these figures are read
+            across, not one at a time. */}
+        <div className="raised-2 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line lg:grid-cols-5">
           <StatTile
             label="Funds in escrow"
             value={summary.fundsInEscrow}
@@ -88,8 +90,9 @@ export default async function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         {/* ---------- Action queue ---------- */}
         <section aria-labelledby="action-heading">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center gap-3">
             <h2 id="action-heading" className="text-sm font-semibold">Action required</h2>
+            <span className="h-px flex-1 bg-line-subtle" aria-hidden />
             {actions.length > 0 ? (
               <span className="text-2xs text-faint">{actions.length} item{actions.length === 1 ? "" : "s"}</span>
             ) : null}
@@ -116,8 +119,9 @@ export default async function DashboardPage() {
 
         {/* ---------- Active agreements ---------- */}
         <section aria-labelledby="active-heading">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center gap-3">
             <h2 id="active-heading" className="text-sm font-semibold">Active agreements</h2>
+            <span className="h-px flex-1 bg-line-subtle" aria-hidden />
             <Link href="/app/agreements" className="text-2xs text-accent transition-colors hover:underline">
               View all
             </Link>
@@ -132,7 +136,7 @@ export default async function DashboardPage() {
                 action={
                   <Link
                     href="/app/agreements/new"
-                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-fg transition-opacity hover:opacity-90"
+                    className="face-primary sheen inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium text-primary-fg transition-transform duration-200 hover:-translate-y-px"
                   >
                     Create an Agreement
                     <ArrowRight className="size-3.5" aria-hidden />
@@ -212,15 +216,15 @@ function ActionCard({ item }: { item: ActionItem }) {
         interactive
         className={
           item.urgency === "overdue"
-            ? "border-danger-border p-4"
+            ? "group/card border-danger-border p-4 shadow-[var(--shadow-sm),var(--glow-danger),inset_0_1px_0_0_var(--surface-highlight)]"
             : item.urgency === "soon"
-              ? "border-attn-border p-4"
-              : "p-4"
+              ? "group/card border-attn-border p-4"
+              : "group/card p-4"
         }
       >
         <div className="flex items-start gap-3.5">
           <span
-            className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border ${
+            className={`edge-light mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border ${
               item.urgency === "overdue"
                 ? "border-danger-border bg-danger-soft text-danger"
                 : item.urgency === "soon"
@@ -252,7 +256,10 @@ function ActionCard({ item }: { item: ActionItem }) {
             ) : null}
           </div>
 
-          <ArrowRight className="mt-2.5 size-4 shrink-0 text-faint" aria-hidden />
+          <ArrowRight
+            className="mt-2.5 size-4 shrink-0 text-faint transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover/card:translate-x-0.5"
+            aria-hidden
+          />
         </div>
       </Card>
     </Link>

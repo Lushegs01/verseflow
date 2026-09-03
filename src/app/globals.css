@@ -573,14 +573,17 @@
     overflow: hidden;
     pointer-events: none;
     z-index: 0;
+    /* Fades out downward, so the light has a source instead of reading as a
+       coloured band laid across the top of the section. */
+    mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 85%);
   }
   .aurora::before,
   .aurora::after {
     content: "";
     position: absolute;
     border-radius: 9999px;
-    filter: blur(72px);
-    opacity: 0.5;
+    filter: blur(88px);
+    opacity: 0.42;
   }
   .aurora::before {
     width: 48rem;
@@ -640,7 +643,7 @@
   /* --- Text -------------------------------------------------------------- */
 
   .text-gradient {
-    background: linear-gradient(135deg, var(--fg) 28%, color-mix(in oklab, var(--fg) 55%, var(--bg)) 100%);
+    background: linear-gradient(150deg, var(--fg) 35%, color-mix(in oklab, var(--fg) 72%, var(--bg)) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
